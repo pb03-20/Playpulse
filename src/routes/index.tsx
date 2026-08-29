@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, Search, Send, Sparkles, Square, Star, Trash2, TrendingUp } from "lucide-react";
+import { Bot, Loader2, Minus, Plus, Search, Send, Sparkles, Square, Star, Trash2, TrendingUp } from "lucide-react";
 import Markdown from "react-markdown";
 import { askReviews, scrapeReviews } from "@/lib/reviews.functions";
 
@@ -52,6 +52,7 @@ function Index() {
 
   const [appId, setAppId] = useState("com.whatsapp");
   const [count, setCount] = useState(300);
+  const [countRaw, setCountRaw] = useState("300");
   const [loadingScrape, setLoadingScrape] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadedApp, setLoadedApp] = useState<string | null>(null);
@@ -171,20 +172,55 @@ function Index() {
               />
             </div>
           </div>
-          <div className="sm:w-40">
+          <div className="sm:w-44">
             <label htmlFor="count" className="mb-1.5 block text-xs font-medium text-muted-foreground">
               Reviews to pull
             </label>
-            <input
-              id="count"
-              type="number"
-              min={10}
-              max={2000}
-              step={50}
-              value={count}
-              onChange={(e) => setCount(Math.max(10, Math.min(2000, Number(e.target.value) || 10)))}
-              className="w-full rounded-xl border border-glass-border bg-glass px-3 py-2.5 text-sm outline-none"
-            />
+            <div className="flex items-center rounded-xl border border-glass-border bg-glass">
+              <button
+                type="button"
+                aria-label="Decrease count"
+                onClick={() => {
+                  const next = Math.max(10, count - 50);
+                  setCount(next);
+                  setCountRaw(String(next));
+                }}
+                className="flex size-9 shrink-0 items-center justify-center rounded-l-xl text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+              >
+                <Minus className="size-3.5" />
+              </button>
+              <input
+                id="count"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={countRaw}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, "");
+                  setCountRaw(raw);
+                  const n = parseInt(raw, 10);
+                  if (!isNaN(n)) setCount(Math.max(10, Math.min(2000, n)));
+                }}
+                onBlur={() => {
+                  const clamped = Math.max(10, Math.min(2000, count));
+                  setCount(clamped);
+                  setCountRaw(String(clamped));
+                }}
+                className="w-full bg-transparent py-2.5 text-center text-sm outline-none"
+              />
+              <button
+                type="button"
+                aria-label="Increase count"
+                onClick={() => {
+                  const next = Math.min(2000, count + 50);
+                  setCount(next);
+                  setCountRaw(String(next));
+                }}
+                className="flex size-9 shrink-0 items-center justify-center rounded-r-xl text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+              >
+                <Plus className="size-3.5" />
+              </button>
+            </div>
           </div>
           <button
             onClick={handleScrape}
