@@ -195,6 +195,7 @@ function Index() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={countRaw}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^0-9]/g, "");
                   setCountRaw(raw);
