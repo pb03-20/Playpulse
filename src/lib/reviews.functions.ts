@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const ScrapeInput = z.object({
   appId: z.string().min(2),
-  count: z.number().int().min(10).max(2000),
+  count: z.number().int().min(10),
   lang: z.string().default("en"),
   country: z.string().default("us"),
 });

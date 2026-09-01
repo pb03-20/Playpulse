@@ -77,12 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ReviewLens — AI User Research from App Reviews" },
+      { title: "PlayPulse — AI User Research from App Reviews" },
       {
         name: "description",
         content: "Chat with thousands of real Google Play reviews to uncover user insights.",
       },
-      { property: "og:title", content: "ReviewLens — AI User Research from App Reviews" },
+      { property: "og:title", content: "PlayPulse — AI User Research from App Reviews" },
       {
         property: "og:description",
         content: "Chat with thousands of real Google Play reviews to uncover user insights.",

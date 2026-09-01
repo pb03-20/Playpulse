@@ -8,13 +8,13 @@ import { askReviews, scrapeReviews } from "@/lib/reviews.functions";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ReviewLens — AI User Research from Google Play Reviews" },
+      { title: "PlayPulse — AI User Research from Google Play Reviews" },
       {
         name: "description",
         content:
-          "Pull thousands of Google Play reviews and chat with them. Instant themes, sentiment and evidence-backed answers powered by Gemini.",
+          "Pull Google Play reviews and chat with them. Instant themes, sentiment and evidence-backed answers powered by Gemini.",
       },
-      { property: "og:title", content: "ReviewLens — AI User Research from App Reviews" },
+      { property: "og:title", content: "PlayPulse — AI User Research from App Reviews" },
       {
         property: "og:description",
         content:
@@ -146,7 +146,7 @@ function Index() {
           </span>
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              <span className="text-gradient">ReviewLens</span>
+              <span className="text-gradient">PlayPulse</span>
             </h1>
             <p className="text-sm text-muted-foreground">
               AI user research on real Google Play reviews
@@ -200,10 +200,10 @@ function Index() {
                   const raw = e.target.value.replace(/[^0-9]/g, "");
                   setCountRaw(raw);
                   const n = parseInt(raw, 10);
-                  if (!isNaN(n)) setCount(Math.max(10, Math.min(2000, n)));
+                  if (!isNaN(n)) setCount(Math.max(10, n));
                 }}
                 onBlur={() => {
-                  const clamped = Math.max(10, Math.min(2000, count));
+                  const clamped = Math.max(10, count);
                   setCount(clamped);
                   setCountRaw(String(clamped));
                 }}
@@ -213,7 +213,7 @@ function Index() {
                 type="button"
                 aria-label="Increase count"
                 onClick={() => {
-                  const next = Math.min(2000, count + 50);
+                  const next = count + 50;
                   setCount(next);
                   setCountRaw(String(next));
                 }}
