@@ -321,6 +321,7 @@ export function getFullDataset() {
   const totalTokens = store.telemetry.reduce((sum, t) => sum + t.totalTokens, 0);
   const totalCost = store.telemetry.reduce((sum, t) => sum + t.estimatedCostUsd, 0);
   const errorEvents = store.telemetry.filter((t) => t.statusCode >= 400);
+  const lastError = errorEvents.length > 0 ? errorEvents[0] : null;
 
   return {
     summary: {
@@ -332,6 +333,11 @@ export function getFullDataset() {
       estimatedCostUsd: Number(totalCost.toFixed(4)),
       totalErrorCount: errorEvents.length,
       quotaErrorsCount: store.telemetry.filter((t) => t.statusCode === 429 || t.statusCode === 402).length,
+      demandErrorsCount: store.telemetry.filter((t) => t.statusCode === 503).length,
+      latestErrorMessage: lastError ? (lastError.errorMessage || `HTTP ${lastError.statusCode}`) : "None - All Systems Operational",
+      lastErrorStatusCode: lastError ? lastError.statusCode : 200,
+      apiHealthStatus: lastError ? (lastError.statusCode === 402 ? "Credits Exhausted (402)" : lastError.statusCode === 429 ? "Rate Limit Hit (429)" : lastError.statusCode === 503 ? "Demand Surge (503)" : `Error (${lastError.statusCode})`) : "Healthy (100% OK)",
+      isQuotaExhausted: store.telemetry.some((t) => t.statusCode === 402 || t.statusCode === 429),
       lastRefreshedAt: new Date().toISOString(),
     },
     users: store.users,

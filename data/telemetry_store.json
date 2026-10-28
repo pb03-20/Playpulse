@@ -4,9 +4,9 @@
       "id": "usr_1793206824748_ozhtz",
       "email": "baghelapriyanshu67@gmail.com",
       "createdAt": "2026-10-28T17:00:24.748Z",
-      "lastActiveAt": "2026-10-28T17:48:50.093Z",
+      "lastActiveAt": "2026-10-28T17:53:50.146Z",
       "totalSessions": 1,
-      "totalDurationSeconds": 855
+      "totalDurationSeconds": 915
     }
   ],
   "sessions": [
@@ -14,8 +14,8 @@
       "id": "ses_1793206651757_85my4",
       "userEmail": "baghelapriyanshu67@gmail.com",
       "startedAt": "2026-10-28T17:40:50.269Z",
-      "lastPingAt": "2026-10-28T17:48:50.093Z",
-      "durationSeconds": 330,
+      "lastPingAt": "2026-10-28T17:52:50.106Z",
+      "durationSeconds": 390,
       "appResearched": "com.whatsapp",
       "questionsCount": 0
     },
@@ -23,7 +23,7 @@
       "id": "ses_1793206932998_66424",
       "userEmail": "baghelapriyanshu67@gmail.com",
       "startedAt": "2026-10-28T17:02:28.064Z",
-      "lastPingAt": "2026-10-28T17:48:50.070Z",
+      "lastPingAt": "2026-10-28T17:53:50.146Z",
       "durationSeconds": 525,
       "appResearched": "com.whatsapp",
       "questionsCount": 0
