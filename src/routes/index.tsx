@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+
 
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -253,6 +254,15 @@ function Index() {
 
         {/* Live Power BI & Researcher Telemetry Pill */}
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+            title="Open Live Telemetry Command Center"
+          >
+            <Activity className="size-3.5" />
+            <span>Live Analytics</span>
+          </Link>
+
           <a
             href="/api/powerbi/feed"
             target="_blank"
@@ -265,8 +275,9 @@ function Index() {
               <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
             </span>
             <BarChart3 className="size-3.5" />
-            <span>Power BI Feed Live</span>
+            <span>Power BI Feed</span>
           </a>
+
 
           {/* Authenticated Researcher Profile Card */}
           <div className="flex items-center gap-2 rounded-full border border-glass-border bg-glass/80 px-2.5 py-1 shadow-sm backdrop-blur-sm">
