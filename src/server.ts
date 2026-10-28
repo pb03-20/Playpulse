@@ -51,9 +51,13 @@ export default {
 
       // Handle Power BI Data Endpoints
       if (url.pathname.startsWith("/api/powerbi")) {
-        const { getFullDataset, getMetricsTable, getTableCsv, recordSessionHeartbeat } = await import(
-          "./lib/telemetry.store"
-        );
+        const {
+          getFullDataset,
+          getMetricsTable,
+          getMonitoringDashboardDataset,
+          getTableCsv,
+          recordSessionHeartbeat,
+        } = await import("./lib/telemetry.store");
 
         const corsHeaders = {
           "Access-Control-Allow-Origin": "*",
@@ -91,6 +95,62 @@ export default {
         }
 
         const format = url.searchParams.get("format") || "json";
+
+        // Dedicated Monitoring Endpoints
+        if (url.pathname === "/api/powerbi/monitoring") {
+          const dataset = getMonitoringDashboardDataset();
+          return new Response(JSON.stringify(dataset, null, 2), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              ...corsHeaders,
+            },
+          });
+        }
+
+        if (url.pathname === "/api/powerbi/activity") {
+          const dataset = getMonitoringDashboardDataset();
+          return new Response(JSON.stringify(dataset.systemActivity, null, 2), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              ...corsHeaders,
+            },
+          });
+        }
+
+        if (url.pathname === "/api/powerbi/kpis") {
+          const dataset = getMonitoringDashboardDataset();
+          return new Response(JSON.stringify(dataset.kpisTable, null, 2), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              ...corsHeaders,
+            },
+          });
+        }
+
+        if (url.pathname === "/api/powerbi/reviews-by-app") {
+          const dataset = getMonitoringDashboardDataset();
+          return new Response(JSON.stringify(dataset.reviewsByApp, null, 2), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              ...corsHeaders,
+            },
+          });
+        }
+
+        if (url.pathname === "/api/powerbi/rag-performance") {
+          const dataset = getMonitoringDashboardDataset();
+          return new Response(JSON.stringify(dataset.ragPerformance, null, 2), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              ...corsHeaders,
+            },
+          });
+        }
 
         if (url.pathname === "/api/powerbi/feed") {
           const data = getFullDataset();

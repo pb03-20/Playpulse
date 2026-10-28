@@ -485,78 +485,156 @@ export function exportToCsvFiles(store: TelemetryStore) {
   fs.writeFileSync(path.join(EXPORT_DIR, "reviews.csv"), toCsv(store.reviews as unknown as Record<string, unknown>[]), "utf-8");
 }
 
+export interface SystemActivityRecord {
+  id: string;
+  timestamp: string;
+  date: string;
+  appName: string;
+  jobType: "RAG Analysis" | "Review Scraping" | "User Session" | "API Error";
+  status: "Completed" | "Failed" | "Running";
+  duration: number; // in milliseconds
+  durationSeconds: number;
+  errorMessage: string;
+  userEmail: string;
+  accountType: string;
+}
+
+export interface ReviewByAppRecord {
+  appName: string;
+  reviewsCollected: number;
+  avgRating: number;
+}
+
+export interface RagPerformanceRecord {
+  timestamp: string;
+  date: string;
+  appName: string;
+  responseTimeMs: number;
+  tokens: number;
+  status: "Completed" | "Failed";
+  userEmail: string;
+}
+
+export function getMonitoringDashboardDataset() {
+  const store = loadStore();
+
+  const appSet = new Set<string>();
+  store.reviews.forEach((r) => r.appId && appSet.add(r.appId));
+  store.sessions.forEach((s) => s.appResearched && appSet.add(s.appResearched));
+  store.telemetry.forEach((t) => t.appId && appSet.add(t.appId));
+  const uniqueApps = Array.from(appSet);
+
+  const systemActivity: SystemActivityRecord[] = [];
+
+  for (const t of store.telemetry) {
+    const isError = t.statusCode >= 400 || t.eventType === "api_error";
+    let jobType: "RAG Analysis" | "Review Scraping" | "User Session" | "API Error" = "RAG Analysis";
+    if (t.eventType === "scrape") jobType = "Review Scraping";
+    else if (t.eventType === "session_heartbeat") jobType = "User Session";
+    else if (t.eventType === "api_error") jobType = t.question ? "RAG Analysis" : "API Error";
+
+    systemActivity.push({
+      id: t.id,
+      timestamp: t.createdAt,
+      date: t.createdAt ? t.createdAt.split("T")[0]! : "",
+      appName: t.appId || "Unknown App",
+      jobType,
+      status: isError ? "Failed" : "Completed",
+      duration: t.latencyMs || 0,
+      durationSeconds: Number(((t.latencyMs || 0) / 1000).toFixed(2)),
+      errorMessage: isError ? (t.errorMessage || `HTTP ${t.statusCode}`) : "",
+      userEmail: t.userEmail || "anonymous",
+      accountType: "Test Account",
+    });
+  }
+
+  for (const s of store.sessions) {
+    const exists = systemActivity.some((a) => a.id === s.id);
+    if (!exists) {
+      systemActivity.push({
+        id: s.id,
+        timestamp: s.startedAt,
+        date: s.startedAt ? s.startedAt.split("T")[0]! : "",
+        appName: s.appResearched || "Unknown App",
+        jobType: "User Session",
+        status: "Completed",
+        duration: (s.durationSeconds || 0) * 1000,
+        durationSeconds: s.durationSeconds || 0,
+        errorMessage: "",
+        userEmail: s.userEmail || "anonymous",
+        accountType: "Test Account",
+      });
+    }
+  }
+
+  systemActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const reviewAppMap = new Map<string, { count: number; sumScore: number }>();
+  for (const r of store.reviews) {
+    const app = r.appId || "Unknown App";
+    if (!reviewAppMap.has(app)) {
+      reviewAppMap.set(app, { count: 0, sumScore: 0 });
+    }
+    const item = reviewAppMap.get(app)!;
+    item.count++;
+    item.sumScore += r.score || 0;
+  }
+  const reviewsByApp: ReviewByAppRecord[] = Array.from(reviewAppMap.entries()).map(([appName, item]) => ({
+    appName,
+    reviewsCollected: item.count,
+    avgRating: Number((item.sumScore / Math.max(1, item.count)).toFixed(2)),
+  }));
+
+  const ragQueries = store.telemetry.filter((t) => t.eventType === "gemini_ask" || t.question);
+  const ragPerformance: RagPerformanceRecord[] = ragQueries.map((t) => ({
+    timestamp: t.createdAt,
+    date: t.createdAt ? t.createdAt.split("T")[0]! : "",
+    appName: t.appId || "Unknown App",
+    responseTimeMs: t.latencyMs || 0,
+    tokens: t.totalTokens || 0,
+    status: t.statusCode === 200 ? "Completed" : "Failed",
+    userEmail: t.userEmail || "anonymous",
+  }));
+
+  const analysisJobs = systemActivity.filter((a) => a.jobType === "RAG Analysis" || a.jobType === "Review Scraping");
+  const completedAnalysesCount = analysisJobs.filter((a) => a.status === "Completed").length;
+  const ragQuestionsCount = ragQueries.length;
+  const analysisSuccessRate = analysisJobs.length > 0
+    ? Number(((completedAnalysesCount / analysisJobs.length) * 100).toFixed(1))
+    : 100.0;
+
+  const kpis = {
+    totalTestAccounts: store.users.length,
+    totalAppsAnalyzed: uniqueApps.length,
+    totalReviewsCollected: store.reviews.length,
+    completedAnalyses: completedAnalysesCount,
+    ragQuestions: ragQuestionsCount,
+    analysisSuccessRate,
+  };
+
+  const kpisTable = [
+    { Metric: "Total Test Accounts", Value: kpis.totalTestAccounts, Description: "Number of accounts created" },
+    { Metric: "Total Apps Analyzed", Value: kpis.totalAppsAnalyzed, Description: "Unique Google Play apps analyzed" },
+    { Metric: "Total Reviews Collected", Value: kpis.totalReviewsCollected, Description: "Unique reviews stored" },
+    { Metric: "Completed Analyses", Value: kpis.completedAnalyses, Description: "Successfully completed analysis jobs" },
+    { Metric: "RAG Questions", Value: kpis.ragQuestions, Description: "Total questions submitted" },
+    { Metric: "Analysis Success Rate", Value: kpis.analysisSuccessRate, Description: "Percentage of analysis jobs completed successfully" },
+  ];
+
+  return {
+    kpis,
+    kpisTable,
+    systemActivity,
+    reviewsByApp,
+    ragPerformance,
+  };
+}
+
 function generateSeedData(): TelemetryStore {
-  const users: UserRecord[] = [
-    {
-      id: "usr_1793206824748_baghela",
-      email: "baghelapriyanshu67@gmail.com",
-      createdAt: "2026-10-28T16:00:00.000Z",
-      lastActiveAt: "2026-10-28T17:53:50.146Z",
-      totalSessions: 1,
-      totalDurationSeconds: 915,
-    },
-    {
-      id: "usr_1793206824749_priyanshu",
-      email: "priyanshubaghela67@gmail.com",
-      createdAt: "2026-10-28T16:15:00.000Z",
-      lastActiveAt: "2026-10-28T17:35:00.000Z",
-      totalSessions: 1,
-      totalDurationSeconds: 1875,
-    },
-    {
-      id: "usr_1793206824750_aaaa",
-      email: "aaaaaaaab5501@gmail.com",
-      createdAt: "2026-10-28T16:10:00.000Z",
-      lastActiveAt: "2026-10-28T17:40:00.000Z",
-      totalSessions: 1,
-      totalDurationSeconds: 2220,
-    },
-  ];
-
-  const sessions: SessionRecord[] = [
-    {
-      id: "ses_1793206651757_aaaa1",
-      userEmail: "aaaaaaaab5501@gmail.com",
-      startedAt: "2026-10-28T16:15:00.000Z",
-      lastPingAt: "2026-10-28T17:40:00.000Z",
-      durationSeconds: 2220,
-      appResearched: "com.whatsapp",
-      questionsCount: 0,
-      tokensConsumed: 0,
-      estimatedCostUsd: 0,
-      errorCount: 0,
-      avgLatencyMs: 0,
-    },
-    {
-      id: "ses_1793206651757_pri1",
-      userEmail: "priyanshubaghela67@gmail.com",
-      startedAt: "2026-10-28T16:30:10.000Z",
-      lastPingAt: "2026-10-28T17:35:00.000Z",
-      durationSeconds: 1875,
-      appResearched: "com.whatsapp",
-      questionsCount: 0,
-      tokensConsumed: 0,
-      estimatedCostUsd: 0,
-      errorCount: 0,
-      avgLatencyMs: 0,
-    },
-    {
-      id: "ses_1793206651757_85my4",
-      userEmail: "baghelapriyanshu67@gmail.com",
-      startedAt: "2026-10-28T17:02:28.064Z",
-      lastPingAt: "2026-10-28T17:53:50.146Z",
-      durationSeconds: 915,
-      appResearched: "com.whatsapp",
-      questionsCount: 0,
-      tokensConsumed: 0,
-      estimatedCostUsd: 0,
-      errorCount: 0,
-      avgLatencyMs: 0,
-    },
-  ];
-
-  const telemetry: TelemetryEvent[] = [];
-  const reviews: ScrapedReviewRecord[] = [];
-
-  return { users, sessions, telemetry, reviews };
+  return {
+    users: [],
+    sessions: [],
+    telemetry: [],
+    reviews: [],
+  };
 }
