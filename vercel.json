@@ -1,4 +1,9 @@
 {
-  "buildCommand": "NITRO_PRESET=vercel vite build",
-  "outputDirectory": ".vercel/output"
+  "buildCommand": "NITRO_PRESET=vercel npx vite build",
+  "outputDirectory": ".vercel/output",
+  "env": {
+    "DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS": "1"
+  }
 }
+
+
