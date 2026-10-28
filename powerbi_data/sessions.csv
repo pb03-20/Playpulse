@@ -1,0 +1,6 @@
+id,userEmail,startedAt,lastPingAt,durationSeconds,appResearched,questionsCount
+"ses_1793206651757_85my4","researcher@playpulse.io","2026-10-28T16:57:46.818Z","2026-10-28T17:00:24.748Z","75","com.whatsapp","0"
+"ses_1793205562005_pvt31","researcher@playpulse.io","2026-10-28T16:39:37.053Z","2026-10-28T16:52:34.600Z","240","com.whatsapp","0"
+"ses_001","alex.chen@productleads.io","2026-10-28T15:38:22.180Z","2026-10-28T16:18:22.180Z","2400","com.whatsapp","8"
+"ses_002","sarah.miller@uxresearch.com","2026-10-28T14:23:22.180Z","2026-10-28T14:53:22.180Z","1800","com.spotify.music","5"
+"ses_003","david.kumar@growthmetrics.in","2026-10-28T11:23:22.180Z","2026-10-28T11:48:22.180Z","1500","com.instagram.android","4"

@@ -1,0 +1,7 @@
+userEmail,sessionId,eventType,appId,promptTokens,completionTokens,totalTokens,statusCode,latencyMs,id,estimatedCostUsd,createdAt
+"researcher@playpulse.io","ses_1793205562005_pvt31","scrape","com.whatsapp","0","0","0","200","1513","evt_1793205943334_0tnp9","0","2026-10-28T16:45:43.334Z"
+"alex.chen@productleads.io","ses_001","scrape","com.whatsapp","0","0","0","200","1420","evt_001","0","2026-10-28T15:39:22.180Z"
+"alex.chen@productleads.io","ses_001","gemini_ask","com.whatsapp","2850","195","3045","200","1890","evt_002","0.000272","2026-10-28T15:43:22.180Z"
+"alex.chen@productleads.io","ses_001","gemini_ask","com.whatsapp","2600","110","2710","200","1320","evt_003","0.000228","2026-10-28T15:48:22.180Z"
+"sarah.miller@uxresearch.com","ses_002","api_error","com.spotify.music","3100","0","3100","429","450","evt_004","0.000232","2026-10-28T14:38:22.180Z"
+"david.kumar@growthmetrics.in","ses_003","api_error","com.instagram.android","2400","0","2400","402","380","evt_005","0.00018","2026-10-28T11:43:22.180Z"

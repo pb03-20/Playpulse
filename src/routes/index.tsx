@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, Minus, Plus, Search, Send, Sparkles, Square, Star, Trash2, TrendingUp } from "lucide-react";
+import { Activity, BarChart3, Bot, Loader2, LogOut, Minus, Plus, Search, Send, Sparkles, Square, Star, Trash2, TrendingUp, User } from "lucide-react";
 import Markdown from "react-markdown";
 import { askReviews, scrapeReviews } from "@/lib/reviews.functions";
+import { LoginPage } from "@/components/LoginPage";
+import { type GoogleUserProfile } from "@/components/GoogleAuth";
+
+
+
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -50,6 +57,41 @@ function Index() {
   const scrape = useServerFn(scrapeReviews);
   const ask = useServerFn(askReviews);
 
+  const [sessionId] = useState(() => {
+    if (typeof window !== "undefined") {
+      let sid = sessionStorage.getItem("playpulse_session_id");
+      if (!sid) {
+        sid = `ses_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        sessionStorage.setItem("playpulse_session_id", sid);
+      }
+      return sid;
+    }
+    return "ses_default";
+  });
+
+  const [mounted, setMounted] = useState(false);
+  const [currentUser, setCurrentUser] = useState<GoogleUserProfile | null>(null);
+  const [userEmail, setUserEmail] = useState("researcher@playpulse.io");
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const saved = localStorage.getItem("playpulse_google_user");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.email) {
+          setCurrentUser(parsed);
+          setUserEmail(parsed.email);
+        }
+      } else {
+        const savedEmail = localStorage.getItem("playpulse_user_email");
+        if (savedEmail) setUserEmail(savedEmail);
+      }
+    } catch {}
+  }, []);
+
+
+
   const [appId, setAppId] = useState("com.whatsapp");
   const [count, setCount] = useState(300);
   const [countRaw, setCountRaw] = useState("300");
@@ -63,6 +105,25 @@ function Index() {
   const [thinking, setThinking] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Heartbeat to track session time for Power BI live monitoring
+  useEffect(() => {
+    let secondsSpent = 0;
+    const interval = setInterval(() => {
+      secondsSpent += 15;
+      fetch("/api/powerbi/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          userEmail,
+          durationSeconds: secondsSpent,
+          appResearched: loadedApp ?? appId,
+        }),
+      }).catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [sessionId, userEmail, loadedApp, appId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -84,7 +145,16 @@ function Index() {
     setLoadingScrape(true);
     setError(null);
     try {
-      const res = await scrape({ data: { appId: appId.trim(), count, lang: "en", country: "us" } });
+      const res = await scrape({
+        data: {
+          appId: appId.trim(),
+          count,
+          lang: "en",
+          country: "us",
+          userEmail,
+          sessionId,
+        },
+      });
       setReviews(res.reviews);
       setLoadedApp(res.appId);
       setMessages([]);
@@ -107,11 +177,18 @@ function Index() {
     setMessages((m) => [...m, { role: "user", content: trimmed }]);
     setThinking(true);
     try {
-      const res = await ask(
-        { data: { question: trimmed, appId: loadedApp ?? appId, reviews, history } },
-        { signal: controller.signal }
-      );
+      const res = await ask({
+        data: {
+          question: trimmed,
+          appId: loadedApp ?? appId,
+          reviews,
+          history,
+          userEmail,
+          sessionId,
+        },
+      });
       setMessages((m) => [...m, { role: "assistant", content: res.answer }]);
+
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
         setMessages((m) => [
@@ -137,9 +214,29 @@ function Index() {
     }
   }
 
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <LoginPage
+        onLoginSuccess={(profile) => {
+          setCurrentUser(profile);
+          setUserEmail(profile.email);
+        }}
+      />
+    );
+  }
+
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <header className="flex flex-col gap-2">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="glass-panel flex size-11 items-center justify-center rounded-2xl">
             <Sparkles className="size-5 text-primary" />
@@ -153,7 +250,63 @@ function Index() {
             </p>
           </div>
         </div>
+
+        {/* Live Power BI & Researcher Telemetry Pill */}
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href="/api/powerbi/feed"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open live JSON telemetry feed for Power BI"
+            className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+          >
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
+            </span>
+            <BarChart3 className="size-3.5" />
+            <span>Power BI Feed Live</span>
+          </a>
+
+          {/* Authenticated Researcher Profile Card */}
+          <div className="flex items-center gap-2 rounded-full border border-glass-border bg-glass/80 px-2.5 py-1 shadow-sm backdrop-blur-sm">
+            {currentUser.picture ? (
+              <img
+                src={currentUser.picture}
+                alt={currentUser.name}
+                className="size-6 rounded-full object-cover border border-primary/20"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-primary">
+                <User className="size-3.5" />
+              </div>
+            )}
+            <div className="flex flex-col text-left max-w-[130px] sm:max-w-[180px]">
+              <span className="truncate text-xs font-semibold text-foreground leading-tight">
+                {currentUser.name}
+              </span>
+              <span className="truncate text-[10px] text-muted-foreground leading-tight">
+                {currentUser.email}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setCurrentUser(null);
+                localStorage.removeItem("playpulse_google_user");
+                localStorage.removeItem("playpulse_user_email");
+              }}
+              title="Sign Out"
+              className="ml-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-destructive"
+            >
+              <LogOut className="size-3.5" />
+            </button>
+          </div>
+        </div>
       </header>
+
+
+
 
       <section className="glass-panel p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

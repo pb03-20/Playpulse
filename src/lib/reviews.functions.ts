@@ -1,21 +1,60 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import {
+  categorizeQuestion,
+  logTelemetryEvent,
+  recordScrapedReviews,
+  recordUser,
+} from "./telemetry.store";
 
 const ScrapeInput = z.object({
   appId: z.string().min(2),
   count: z.number().int().min(10),
   lang: z.string().default("en"),
   country: z.string().default("us"),
+  userEmail: z.string().default("user@playpulse.io"),
+  sessionId: z.string().default("session_default"),
 });
 
 export const scrapeReviews = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ScrapeInput.parse(input))
   .handler(async ({ data }) => {
+    const start = Date.now();
+    recordUser(data.userEmail);
     const { scrapePlayReviews } = await import("./play.server");
     const reviews = await scrapePlayReviews(data.appId, data.count, data.lang, data.country);
     if (reviews.length === 0) {
+      logTelemetryEvent({
+        userEmail: data.userEmail,
+        sessionId: data.sessionId,
+        eventType: "api_error",
+        appId: data.appId,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        statusCode: 404,
+        errorMessage: "No reviews found for app ID",
+        latencyMs: Date.now() - start,
+      });
       throw new Error("No reviews found. Double-check the app ID (e.g. com.whatsapp).");
     }
+
+    // Persist reviews to store for Power BI
+    recordScrapedReviews(data.appId, reviews);
+
+    // Log successful scrape telemetry
+    logTelemetryEvent({
+      userEmail: data.userEmail,
+      sessionId: data.sessionId,
+      eventType: "scrape",
+      appId: data.appId,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      statusCode: 200,
+      latencyMs: Date.now() - start,
+    });
+
     return { appId: data.appId, reviews };
   });
 
@@ -36,7 +75,10 @@ const AskInput = z.object({
   history: z
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
     .default([]),
+  userEmail: z.string().default("user@playpulse.io"),
+  sessionId: z.string().default("session_default"),
 });
+
 
 const SYSTEM_PROMPT = `You're a user-research analyst who's spent a lot of time reading this app's reviews — you know the data inside out and you talk like a real person, not a report generator.
 
@@ -122,9 +164,12 @@ function selectSample(reviews: z.infer<typeof ReviewSchema>[], question: string,
 export const askReviews = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => AskInput.parse(input))
   .handler(async ({ data }) => {
+    const start = Date.now();
     const apiKey = process.env["GEMINI_API_KEY"];
     if (!apiKey) throw new Error("AI is not configured for this project. Please set GEMINI_API_KEY.");
 
+    recordUser(data.userEmail);
+    const category = categorizeQuestion(data.question);
     const stats = buildStats(data.reviews);
     const sample = selectSample(data.reviews, data.question);
     const context = sample
@@ -136,24 +181,64 @@ export const askReviews = createServerFn({ method: "POST" })
 
     const userPrompt = `[APP]\n${data.appId}\n\n[STATS]\n${stats}\n\n[COVERAGE]\nYou see ${sample.length} of ${data.reviews.length} reviews below; the stats above cover all of them.\n\n[REVIEWS]\n${context}\n\nQuestion: ${data.question}`;
 
-    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gemini-3.6-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...data.history.slice(-6),
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+    // Estimate prompt tokens if needed (avg 4 chars per token)
+    const estimatedPromptTokens = Math.round((SYSTEM_PROMPT.length + userPrompt.length) / 4);
+
+    let res: Response;
+    try {
+      res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gemini-3.6-flash",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...data.history.slice(-6),
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+    } catch (networkErr) {
+      logTelemetryEvent({
+        userEmail: data.userEmail,
+        sessionId: data.sessionId,
+        eventType: "api_error",
+        appId: data.appId,
+        question: data.question,
+        questionCategory: category,
+        promptTokens: estimatedPromptTokens,
+        completionTokens: 0,
+        totalTokens: estimatedPromptTokens,
+        statusCode: 500,
+        errorMessage: networkErr instanceof Error ? networkErr.message : "Network error contacting Gemini",
+        latencyMs: Date.now() - start,
+      });
+      throw networkErr;
+    }
 
     if (!res.ok) {
       const body = await res.text();
+      const latencyMs = Date.now() - start;
+
+      // Log failure in telemetry
+      logTelemetryEvent({
+        userEmail: data.userEmail,
+        sessionId: data.sessionId,
+        eventType: "api_error",
+        appId: data.appId,
+        question: data.question,
+        questionCategory: category,
+        promptTokens: estimatedPromptTokens,
+        completionTokens: 0,
+        totalTokens: estimatedPromptTokens,
+        statusCode: res.status,
+        errorMessage: body.slice(0, 200),
+        latencyMs,
+      });
+
       if (res.status === 429) throw new Error("Too many requests right now — try again in a moment.");
       if (res.status === 402) throw new Error("AI credits exhausted. Add credits to keep chatting.");
       throw new Error(`AI request failed [${res.status}]: ${body.slice(0, 300)}`);
@@ -161,10 +246,36 @@ export const askReviews = createServerFn({ method: "POST" })
 
     const json = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+      };
     };
-    const answer = json.choices?.[0]?.message?.content?.trim();
+
+    const answer = json.choices?.[0]?.message?.content?.trim() ?? "I couldn't produce an answer for that one.";
+    const promptTokens = json.usage?.prompt_tokens ?? estimatedPromptTokens;
+    const completionTokens = json.usage?.completion_tokens ?? Math.round(answer.length / 4);
+    const totalTokens = json.usage?.total_tokens ?? (promptTokens + completionTokens);
+
+    // Log successful AI question event
+    logTelemetryEvent({
+      userEmail: data.userEmail,
+      sessionId: data.sessionId,
+      eventType: "gemini_ask",
+      appId: data.appId,
+      question: data.question,
+      questionCategory: category,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      statusCode: 200,
+      latencyMs: Date.now() - start,
+    });
+
     return {
-      answer: answer && answer.length > 0 ? answer : "I couldn't produce an answer for that one.",
+      answer,
       reviewsConsidered: sample.length,
     };
   });
+
