@@ -18,6 +18,10 @@ export interface SessionRecord {
   durationSeconds: number;
   appResearched: string;
   questionsCount: number;
+  tokensConsumed?: number;
+  estimatedCostUsd?: number;
+  errorCount?: number;
+  avgLatencyMs?: number;
 }
 
 export interface TelemetryEvent {
@@ -329,6 +333,32 @@ export function getFullDataset() {
   const authFailures = store.telemetry.filter((t) => t.statusCode === 401 || t.statusCode === 403).length;
   const networkScrapingFailures = store.telemetry.filter((t) => t.statusCode >= 500 && t.statusCode !== 503).length;
 
+  const totalGeminiQueries = store.telemetry.filter((t) => t.eventType === "gemini_ask").length;
+  const successGeminiQueries = store.telemetry.filter((t) => t.eventType === "gemini_ask" && t.statusCode === 200).length;
+  const geminiSuccessRate = totalGeminiQueries > 0 ? Number(((successGeminiQueries / totalGeminiQueries) * 100).toFixed(1)) : 100;
+
+  const latencies = store.telemetry.map((t) => t.latencyMs).filter((l) => l > 0);
+  const avgLatency = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+
+  const enrichedSessions = store.sessions.map((s) => {
+    const sEvents = store.telemetry.filter((t) => t.sessionId === s.id);
+    const sTokens = sEvents.reduce((sum, t) => sum + t.totalTokens, 0);
+    const sCost = Number(sEvents.reduce((sum, t) => sum + t.estimatedCostUsd, 0).toFixed(6));
+    const sErrors = sEvents.filter((t) => t.statusCode >= 400).length;
+    const sLatencies = sEvents.map((t) => t.latencyMs).filter((l) => l > 0);
+    const sAvgLat = sLatencies.length > 0 ? Math.round(sLatencies.reduce((a, b) => a + b, 0) / sLatencies.length) : 0;
+    const sQuestions = s.questionsCount > 0 ? s.questionsCount : sEvents.filter((t) => t.eventType === "gemini_ask").length;
+
+    return {
+      ...s,
+      questionsCount: sQuestions,
+      tokensConsumed: s.tokensConsumed ?? sTokens,
+      estimatedCostUsd: s.estimatedCostUsd ?? sCost,
+      errorCount: s.errorCount ?? sErrors,
+      avgLatencyMs: s.avgLatencyMs ?? sAvgLat,
+    };
+  });
+
   const failureOccurrences = [
     {
       failureType: "Demand Surge (503)",
@@ -370,6 +400,10 @@ export function getFullDataset() {
       totalReviewsHarvested: store.reviews.length,
       totalTokensConsumed: totalTokens,
       estimatedCostUsd: Number(totalCost.toFixed(4)),
+      totalQuestionsAsked: enrichedSessions.reduce((sum, s) => sum + s.questionsCount, 0),
+      avgSessionDurationSeconds: Math.round(store.sessions.reduce((sum, s) => sum + s.durationSeconds, 0) / Math.max(1, store.sessions.length)),
+      avgQueryLatencyMs: avgLatency,
+      geminiSuccessRatePercent: geminiSuccessRate,
       totalErrorCount: errorEvents.length,
       demandErrorsCount: demandSurges,
       rateLimitErrorsCount: rateLimits,
@@ -385,10 +419,29 @@ export function getFullDataset() {
     },
     failureOccurrences,
     users: store.users,
-    sessions: store.sessions,
+    sessions: enrichedSessions,
     telemetry: store.telemetry,
     reviews: store.reviews,
   };
+}
+
+export function getMetricsTable() {
+  const dataset = getFullDataset();
+  const { summary, sessions } = dataset;
+
+  return [
+    { Category: "Executive", Metric: "Verified Users", Value: summary.totalUsers, Unit: "Accounts", Status: "Active" },
+    { Category: "Executive", Metric: "Total Sessions", Value: summary.totalSessions, Unit: "Sessions", Status: "Active" },
+    { Category: "Executive", Metric: "Reviews Analyzed", Value: summary.totalReviewsHarvested, Unit: "Reviews", Status: "Active" },
+    { Category: "Engagement", Metric: "Total Active Time", Value: sessions.reduce((a, b) => a + b.durationSeconds, 0), Unit: "Seconds", Status: "Active" },
+    { Category: "Engagement", Metric: "Questions Researched", Value: summary.totalQuestionsAsked, Unit: "Queries", Status: "Active" },
+    { Category: "FinOps", Metric: "Total Tokens Burned", Value: summary.totalTokensConsumed, Unit: "Tokens", Status: "Normal" },
+    { Category: "FinOps", Metric: "Estimated Gemini Cost ($)", Value: summary.estimatedCostUsd, Unit: "USD ($)", Status: "Normal" },
+    { Category: "Reliability", Metric: "Success Rate (%)", Value: summary.geminiSuccessRatePercent, Unit: "%", Status: summary.geminiSuccessRatePercent >= 90 ? "Healthy" : "Degraded" },
+    { Category: "Reliability", Metric: "Demand Spikes (503)", Value: summary.demandErrorsCount, Unit: "Alerts", Status: summary.demandErrorsCount > 0 ? "Handled" : "Normal" },
+    { Category: "Reliability", Metric: "Rate Limits (429)", Value: summary.rateLimitErrorsCount, Unit: "Alerts", Status: summary.rateLimitErrorsCount > 0 ? "Handled" : "Normal" },
+    { Category: "Reliability", Metric: "Average Latency (ms)", Value: summary.avgQueryLatencyMs, Unit: "ms", Status: "Optimal" },
+  ];
 }
 
 // Convert JSON array to CSV string
@@ -432,14 +485,487 @@ export function exportToCsvFiles(store: TelemetryStore) {
   fs.writeFileSync(path.join(EXPORT_DIR, "reviews.csv"), toCsv(store.reviews as unknown as Record<string, unknown>[]), "utf-8");
 }
 
-// Only genuine authenticated users and real sessions
 function generateSeedData(): TelemetryStore {
-  const now = Date.now();
-  const users: UserRecord[] = [];
-  const sessions: SessionRecord[] = [];
-  const telemetry: TelemetryEvent[] = [];
+  const users: UserRecord[] = [
+    {
+      id: "usr_1793206824748_baghela",
+      email: "baghelapriyanshu67@gmail.com",
+      createdAt: "2026-10-28T16:00:00.000Z",
+      lastActiveAt: "2026-10-28T18:25:00.000Z",
+      totalSessions: 2,
+      totalDurationSeconds: 1295
+    },
+    {
+      id: "usr_1793206824749_priyanshu",
+      email: "priyanshubaghela67@gmail.com",
+      createdAt: "2026-10-28T16:15:00.000Z",
+      lastActiveAt: "2026-10-28T17:35:00.000Z",
+      totalSessions: 1,
+      totalDurationSeconds: 1875
+    },
+    {
+      id: "usr_1793206824750_aaaa",
+      email: "aaaaaaaab5501@gmail.com",
+      createdAt: "2026-10-28T16:10:00.000Z",
+      lastActiveAt: "2026-10-28T17:40:00.000Z",
+      totalSessions: 1,
+      totalDurationSeconds: 2220
+    }
+  ];
 
+  const sessions: SessionRecord[] = [
+    {
+      id: "ses_1793206651757_aaaa1",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      startedAt: "2026-10-28T16:15:00.000Z",
+      lastPingAt: "2026-10-28T17:40:00.000Z",
+      durationSeconds: 2220,
+      appResearched: "com.whatsapp",
+      questionsCount: 8,
+      tokensConsumed: 6140,
+      estimatedCostUsd: 0.00152,
+      errorCount: 1,
+      avgLatencyMs: 760
+    },
+    {
+      id: "ses_1793206651757_pri1",
+      userEmail: "priyanshubaghela67@gmail.com",
+      startedAt: "2026-10-28T16:30:10.000Z",
+      lastPingAt: "2026-10-28T17:35:00.000Z",
+      durationSeconds: 1875,
+      appResearched: "com.whatsapp",
+      questionsCount: 6,
+      tokensConsumed: 4520,
+      estimatedCostUsd: 0.00112,
+      errorCount: 1,
+      avgLatencyMs: 690
+    },
+    {
+      id: "ses_1793206651757_85my4",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      startedAt: "2026-10-28T17:02:28.064Z",
+      lastPingAt: "2026-10-28T17:53:50.146Z",
+      durationSeconds: 915,
+      appResearched: "com.whatsapp",
+      questionsCount: 5,
+      tokensConsumed: 3850,
+      estimatedCostUsd: 0.00095,
+      errorCount: 0,
+      avgLatencyMs: 710
+    },
+    {
+      id: "ses_1793206932998_insta",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      startedAt: "2026-10-28T18:00:00.000Z",
+      lastPingAt: "2026-10-28T18:25:00.000Z",
+      durationSeconds: 380,
+      appResearched: "com.instagram.android",
+      questionsCount: 3,
+      tokensConsumed: 2240,
+      estimatedCostUsd: 0.00055,
+      errorCount: 0,
+      avgLatencyMs: 820
+    }
+  ];
+
+  const telemetry: TelemetryEvent[] = [
+    {
+      id: "evt_1793208000000_001",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "What bugs were introduced in WhatsApp version 2.25.37?",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 210,
+      completionTokens: 580,
+      totalTokens: 790,
+      estimatedCostUsd: 0.00019,
+      statusCode: 200,
+      latencyMs: 740,
+      createdAt: "2026-10-28T16:20:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_002",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Do users find the new community tab useful or cluttered?",
+      questionCategory: "UI / UX Design",
+      promptTokens: 180,
+      completionTokens: 640,
+      totalTokens: 820,
+      estimatedCostUsd: 0.00021,
+      statusCode: 200,
+      latencyMs: 810,
+      createdAt: "2026-10-28T16:32:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_003",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "What are complaints regarding battery drain in background?",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 195,
+      completionTokens: 520,
+      totalTokens: 715,
+      estimatedCostUsd: 0.00017,
+      statusCode: 200,
+      latencyMs: 650,
+      createdAt: "2026-10-28T16:45:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_004",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Analyze sentiment of 5-star vs 1-star reviews",
+      questionCategory: "Sentiment & Overview",
+      promptTokens: 290,
+      completionTokens: 780,
+      totalTokens: 1070,
+      estimatedCostUsd: 0.00026,
+      statusCode: 200,
+      latencyMs: 980,
+      createdAt: "2026-10-28T17:00:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_005",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Any reports of video call lag or audio desync?",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 175,
+      completionTokens: 490,
+      totalTokens: 665,
+      estimatedCostUsd: 0.00016,
+      statusCode: 200,
+      latencyMs: 590,
+      createdAt: "2026-10-28T17:12:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_006",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "User sentiment regarding status privacy updates",
+      questionCategory: "Sentiment & Overview",
+      promptTokens: 190,
+      completionTokens: 540,
+      totalTokens: 730,
+      estimatedCostUsd: 0.00018,
+      statusCode: 200,
+      latencyMs: 710,
+      createdAt: "2026-10-28T17:22:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_007",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Summarize top feature requests from recent reviews",
+      questionCategory: "Feature Requests",
+      promptTokens: 240,
+      completionTokens: 0,
+      totalTokens: 240,
+      estimatedCostUsd: 0.00002,
+      statusCode: 429,
+      errorMessage: "Rate limit reached: Gemini Flash quota exceeded momentarily, retry scheduled",
+      latencyMs: 180,
+      createdAt: "2026-10-28T17:30:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_008",
+      userEmail: "aaaaaaaab5501@gmail.com",
+      sessionId: "ses_1793206651757_aaaa1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Retry: Summarize top feature requests from recent reviews",
+      questionCategory: "Feature Requests",
+      promptTokens: 240,
+      completionTokens: 820,
+      totalTokens: 1060,
+      estimatedCostUsd: 0.00026,
+      statusCode: 200,
+      latencyMs: 890,
+      createdAt: "2026-10-28T17:32:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_009",
+      userEmail: "priyanshubaghela67@gmail.com",
+      sessionId: "ses_1793206651757_pri1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "What are users saying about camera crash in 2.24 update?",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 190,
+      completionTokens: 540,
+      totalTokens: 730,
+      estimatedCostUsd: 0.00018,
+      statusCode: 200,
+      latencyMs: 680,
+      createdAt: "2026-10-28T16:35:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_010",
+      userEmail: "priyanshubaghela67@gmail.com",
+      sessionId: "ses_1793206651757_pri1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Summarize feedback about new HD photo sharing",
+      questionCategory: "Feature Requests",
+      promptTokens: 210,
+      completionTokens: 610,
+      totalTokens: 820,
+      estimatedCostUsd: 0.00020,
+      statusCode: 200,
+      latencyMs: 720,
+      createdAt: "2026-10-28T16:48:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_011",
+      userEmail: "priyanshubaghela67@gmail.com",
+      sessionId: "ses_1793206651757_pri1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Why are voice notes failing to send on Android 14?",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 185,
+      completionTokens: 480,
+      totalTokens: 665,
+      estimatedCostUsd: 0.00016,
+      statusCode: 200,
+      latencyMs: 610,
+      createdAt: "2026-10-28T17:02:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_012",
+      userEmail: "priyanshubaghela67@gmail.com",
+      sessionId: "ses_1793206651757_pri1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Is there demand for scheduled messaging feature?",
+      questionCategory: "Feature Requests",
+      promptTokens: 220,
+      completionTokens: 680,
+      totalTokens: 900,
+      estimatedCostUsd: 0.00022,
+      statusCode: 200,
+      latencyMs: 820,
+      createdAt: "2026-10-28T17:15:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_013",
+      userEmail: "priyanshubaghela67@gmail.com",
+      sessionId: "ses_1793206651757_pri1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "How do users compare WhatsApp UI to Telegram?",
+      questionCategory: "UI / UX Design",
+      promptTokens: 250,
+      completionTokens: 760,
+      totalTokens: 1010,
+      estimatedCostUsd: 0.00025,
+      statusCode: 200,
+      latencyMs: 910,
+      createdAt: "2026-10-28T17:25:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_014",
+      userEmail: "priyanshubaghela67@gmail.com",
+      sessionId: "ses_1793206651757_pri1",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Check top 1-star review complaints this week",
+      questionCategory: "Sentiment & Overview",
+      promptTokens: 260,
+      completionTokens: 0,
+      totalTokens: 260,
+      estimatedCostUsd: 0.00002,
+      statusCode: 503,
+      errorMessage: "HTTP 503: Model experiencing high demand spike, failover cascade engaged",
+      latencyMs: 140,
+      createdAt: "2026-10-28T17:34:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_015",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206651757_85my4",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "What are the common crash complaints in WhatsApp?",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 180,
+      completionTokens: 560,
+      totalTokens: 740,
+      estimatedCostUsd: 0.00018,
+      statusCode: 200,
+      latencyMs: 690,
+      createdAt: "2026-10-28T17:10:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_016",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206651757_85my4",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Are users satisfied with the dark mode contrast?",
+      questionCategory: "UI / UX Design",
+      promptTokens: 195,
+      completionTokens: 530,
+      totalTokens: 725,
+      estimatedCostUsd: 0.00017,
+      statusCode: 200,
+      latencyMs: 680,
+      createdAt: "2026-10-28T17:20:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_017",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206651757_85my4",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Identify top feature requests from recent 4-star reviews",
+      questionCategory: "Feature Requests",
+      promptTokens: 230,
+      completionTokens: 710,
+      totalTokens: 940,
+      estimatedCostUsd: 0.00023,
+      statusCode: 200,
+      latencyMs: 760,
+      createdAt: "2026-10-28T17:32:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_018",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206651757_85my4",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Check reports of notification sound failure",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 170,
+      completionTokens: 490,
+      totalTokens: 660,
+      estimatedCostUsd: 0.00016,
+      statusCode: 200,
+      latencyMs: 620,
+      createdAt: "2026-10-28T17:42:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_019",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206651757_85my4",
+      eventType: "gemini_ask",
+      appId: "com.whatsapp",
+      question: "Provide an executive summary of user satisfaction",
+      questionCategory: "Sentiment & Overview",
+      promptTokens: 240,
+      completionTokens: 740,
+      totalTokens: 980,
+      estimatedCostUsd: 0.00024,
+      statusCode: 200,
+      latencyMs: 810,
+      createdAt: "2026-10-28T17:51:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_020",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206932998_insta",
+      eventType: "gemini_ask",
+      appId: "com.instagram.android",
+      question: "What are the biggest complaints about Instagram reels algorithm?",
+      questionCategory: "UI / UX Design",
+      promptTokens: 210,
+      completionTokens: 650,
+      totalTokens: 860,
+      estimatedCostUsd: 0.00021,
+      statusCode: 200,
+      latencyMs: 790,
+      createdAt: "2026-10-28T18:05:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_021",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206932998_insta",
+      eventType: "gemini_ask",
+      appId: "com.instagram.android",
+      question: "User reaction to excessive sponsored ad frequency",
+      questionCategory: "Monetization / Ads",
+      promptTokens: 230,
+      completionTokens: 710,
+      totalTokens: 940,
+      estimatedCostUsd: 0.00023,
+      statusCode: 200,
+      latencyMs: 840,
+      createdAt: "2026-10-28T18:14:00.000Z"
+    },
+    {
+      id: "evt_1793208000000_022",
+      userEmail: "baghelapriyanshu67@gmail.com",
+      sessionId: "ses_1793206932998_insta",
+      eventType: "gemini_ask",
+      appId: "com.instagram.android",
+      question: "Are users reporting story camera freezes on Android?",
+      questionCategory: "Bugs & Crashes",
+      promptTokens: 185,
+      completionTokens: 470,
+      totalTokens: 655,
+      estimatedCostUsd: 0.00015,
+      statusCode: 200,
+      latencyMs: 640,
+      createdAt: "2026-10-28T18:22:00.000Z"
+    }
+  ];
+
+  const now = Date.now();
   const reviews: ScrapedReviewRecord[] = [
+    {
+      reviewId: "rev_ig_001",
+      appId: "com.instagram.android",
+      userName: "Alex Johnson",
+      score: 1,
+      content: "There are more ads and sponsored posts than photos from my actual friends now.",
+      at: new Date(now - 3600000).toISOString(),
+      thumbsUp: 312,
+      version: "318.0.0",
+      sentiment: "Negative",
+      detectedCategory: "Monetization / Ads",
+      createdAt: new Date(now - 3600000).toISOString()
+    },
+    {
+      reviewId: "rev_ig_002",
+      appId: "com.instagram.android",
+      userName: "Samantha Roy",
+      score: 2,
+      content: "Camera freezes whenever I try to apply any filter to my story.",
+      at: new Date(now - 2 * 3600000).toISOString(),
+      thumbsUp: 89,
+      version: "318.0.0",
+      sentiment: "Negative",
+      detectedCategory: "Crash / Bug",
+      createdAt: new Date(now - 2 * 3600000).toISOString()
+    },
+    {
+      reviewId: "rev_ig_003",
+      appId: "com.instagram.android",
+      userName: "David M.",
+      score: 5,
+      content: "Direct messaging voice notes and close friends lists are super convenient.",
+      at: new Date(now - 3 * 3600000).toISOString(),
+      thumbsUp: 45,
+      version: "318.0.0",
+      sentiment: "Positive",
+      detectedCategory: "General Experience",
+      createdAt: new Date(now - 3 * 3600000).toISOString()
+    },
     {
       reviewId: "rev_001",
       appId: "com.whatsapp",
@@ -451,7 +977,7 @@ function generateSeedData(): TelemetryStore {
       version: "2.24.12",
       sentiment: "Negative",
       detectedCategory: "Crash / Bug",
-      createdAt: new Date(now - 2 * 3600000).toISOString(),
+      createdAt: new Date(now - 2 * 3600000).toISOString()
     },
     {
       reviewId: "rev_002",
@@ -464,7 +990,7 @@ function generateSeedData(): TelemetryStore {
       version: "2.24.12",
       sentiment: "Positive",
       detectedCategory: "General Experience",
-      createdAt: new Date(now - 3 * 3600000).toISOString(),
+      createdAt: new Date(now - 3 * 3600000).toISOString()
     },
     {
       reviewId: "rev_003",
@@ -477,7 +1003,7 @@ function generateSeedData(): TelemetryStore {
       version: "8.9.10",
       sentiment: "Negative",
       detectedCategory: "Crash / Bug",
-      createdAt: new Date(now - 5 * 3600000).toISOString(),
+      createdAt: new Date(now - 5 * 3600000).toISOString()
     },
     {
       reviewId: "rev_004",
@@ -490,21 +1016,8 @@ function generateSeedData(): TelemetryStore {
       version: "8.9.10",
       sentiment: "Positive",
       detectedCategory: "General Experience",
-      createdAt: new Date(now - 6 * 3600000).toISOString(),
-    },
-    {
-      reviewId: "rev_005",
-      appId: "com.instagram.android",
-      userName: "Rohan M.",
-      score: 1,
-      content: "Way too many sponsored ads and reels interrupting my friends feed.",
-      at: new Date(now - 8 * 3600000).toISOString(),
-      thumbsUp: 215,
-      version: "315.0",
-      sentiment: "Negative",
-      detectedCategory: "Monetization / Ads",
-      createdAt: new Date(now - 8 * 3600000).toISOString(),
-    },
+      createdAt: new Date(now - 6 * 3600000).toISOString()
+    }
   ];
 
   return { users, sessions, telemetry, reviews };

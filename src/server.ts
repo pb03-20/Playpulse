@@ -51,7 +51,7 @@ export default {
 
       // Handle Power BI Data Endpoints
       if (url.pathname.startsWith("/api/powerbi")) {
-        const { getFullDataset, getTableCsv, recordSessionHeartbeat } = await import(
+        const { getFullDataset, getMetricsTable, getTableCsv, recordSessionHeartbeat } = await import(
           "./lib/telemetry.store"
         );
 
@@ -103,8 +103,29 @@ export default {
           });
         }
 
+        if (url.pathname === "/api/powerbi/metrics") {
+          const metrics = getMetricsTable();
+          return new Response(JSON.stringify(metrics, null, 2), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              ...corsHeaders,
+            },
+          });
+        }
+
         const table = url.pathname.replace("/api/powerbi/", "").toLowerCase();
-        if (["users", "sessions", "telemetry", "reviews", "failures", "failureoccurrences"].includes(table)) {
+        if (["users", "sessions", "telemetry", "reviews", "failures", "failureoccurrences", "metrics"].includes(table)) {
+          if (table === "metrics") {
+            const metrics = getMetricsTable();
+            return new Response(JSON.stringify(metrics, null, 2), {
+              headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-store",
+                ...corsHeaders,
+              },
+            });
+          }
           const dataset = getFullDataset();
           const targetKey = table === "failures" || table === "failureoccurrences" ? "failureOccurrences" : table;
           if (format === "csv") {
