@@ -36,7 +36,7 @@ METADATA = json.dumps({
     "AutoCreated": True
 })
 
-# 5. DataModelSchema with M queries for all 4 tables
+# 5. DataModelSchema with M queries and DAX measures
 DATA_MODEL_SCHEMA = {
     "name": "PlayPulseTelemetryModel",
     "compatibilityLevel": 1550,
@@ -67,6 +67,12 @@ DATA_MODEL_SCHEMA = {
                     {"name": "LastActive", "dataType": "dateTime", "sourceColumn": "LastActive"},
                     {"name": "TotalSessions", "dataType": "int64", "sourceColumn": "TotalSessions"},
                     {"name": "TotalMinutesSpent", "dataType": "double", "sourceColumn": "TotalMinutesSpent"}
+                ],
+                "measures": [
+                    {
+                        "name": "Total Real Verified Users",
+                        "expression": "DISTINCTCOUNT(Users[Email])"
+                    }
                 ],
                 "partitions": [
                     {
@@ -101,6 +107,27 @@ DATA_MODEL_SCHEMA = {
                     {"name": "QuestionsCount", "dataType": "int64", "sourceColumn": "QuestionsCount"},
                     {"name": "DurationMinutes", "dataType": "double", "sourceColumn": "DurationMinutes"},
                     {"name": "EngagementType", "dataType": "string", "sourceColumn": "EngagementType"}
+                ],
+                "measures": [
+                    {
+                        "name": "Total Active Research Minutes",
+                        "expression": "SUM(Sessions[DurationMinutes])",
+                        "formatString": "#,##0.0"
+                    },
+                    {
+                        "name": "Lurking Minutes",
+                        "expression": "CALCULATE(SUM(Sessions[DurationMinutes]), Sessions[QuestionsCount] = 0)",
+                        "formatString": "#,##0.0"
+                    },
+                    {
+                        "name": "Lurking Ratio %",
+                        "expression": "DIVIDE([Lurking Minutes], [Total Active Research Minutes], 0)",
+                        "formatString": "0.0%"
+                    },
+                    {
+                        "name": "Total Real Sessions",
+                        "expression": "COUNTROWS(Sessions)"
+                    }
                 ],
                 "partitions": [
                     {
@@ -139,9 +166,24 @@ DATA_MODEL_SCHEMA = {
                     {"name": "TotalTokens", "dataType": "int64", "sourceColumn": "TotalTokens"},
                     {"name": "CostUSD", "dataType": "double", "sourceColumn": "CostUSD"},
                     {"name": "StatusCode", "dataType": "int64", "sourceColumn": "StatusCode"},
-                    {"name": "ErrorMessage", "dataType": "string", "sourceColumn": "ErrorMessage"},
-                    {"name": "LatencyMs", "dataType": "int64", "sourceColumn": "LatencyMs"},
-                    {"name": "EventTime", "dataType": "dateTime", "sourceColumn": "EventTime"}
+                    {"name": "LatencySeconds", "dataType": "double", "sourceColumn": "LatencySeconds"},
+                    {"name": "EventTimestamp", "dataType": "dateTime", "sourceColumn": "EventTimestamp"}
+                ],
+                "measures": [
+                    {
+                        "name": "Total Tokens Burned",
+                        "expression": "SUM(Telemetry[TotalTokens])",
+                        "formatString": "#,##0"
+                    },
+                    {
+                        "name": "Total Gemini Cost ($)",
+                        "expression": "SUM(Telemetry[CostUSD])",
+                        "formatString": "$#,##0.0000"
+                    },
+                    {
+                        "name": "Total AI Questions Asked",
+                        "expression": "CALCULATE(COUNTROWS(Telemetry), Telemetry[EventType] = \"gemini_ask\")"
+                    }
                 ],
                 "partitions": [
                     {
@@ -152,12 +194,13 @@ DATA_MODEL_SCHEMA = {
                             "expression": [
                                 "let",
                                 "    Source = Json.Document(Web.Contents(\"https://new2-liard.vercel.app/api/powerbi/feed\")),",
-                                "    raw_telemetry = Source[telemetry],",
-                                "    table_telemetry = Table.FromList(raw_telemetry, Splitter.SplitByNothing(), null, null, ExtraValues.Error),",
-                                "    expanded_telemetry = Table.ExpandRecordColumn(table_telemetry, \"Column1\", {\"id\", \"userEmail\", \"sessionId\", \"eventType\", \"appId\", \"question\", \"questionCategory\", \"promptTokens\", \"completionTokens\", \"totalTokens\", \"estimatedCostUsd\", \"statusCode\", \"errorMessage\", \"latencyMs\", \"createdAt\"}, {\"EventID\", \"UserEmail\", \"SessionID\", \"EventType\", \"TargetApp\", \"UserQuestion\", \"QuestionCategory\", \"PromptTokens\", \"CompletionTokens\", \"TotalTokens\", \"CostUSD\", \"StatusCode\", \"ErrorMessage\", \"LatencyMs\", \"EventTime\"}),",
-                                "    typed_telemetry = Table.TransformColumnTypes(expanded_telemetry, {{\"PromptTokens\", Int64.Type}, {\"CompletionTokens\", Int64.Type}, {\"TotalTokens\", Int64.Type}, {\"CostUSD\", type number}, {\"StatusCode\", Int64.Type}, {\"LatencyMs\", Int64.Type}, {\"EventTime\", type datetimezone}})",
+                                "    raw_events = Source[telemetry],",
+                                "    table_events = Table.FromList(raw_events, Splitter.SplitByNothing(), null, null, ExtraValues.Error),",
+                                "    expanded_events = Table.ExpandRecordColumn(table_events, \"Column1\", {\"id\", \"userEmail\", \"sessionId\", \"eventType\", \"appId\", \"question\", \"questionCategory\", \"promptTokens\", \"completionTokens\", \"totalTokens\", \"estimatedCostUsd\", \"statusCode\", \"latencyMs\", \"createdAt\"}, {\"EventID\", \"UserEmail\", \"SessionID\", \"EventType\", \"TargetApp\", \"UserQuestion\", \"QuestionCategory\", \"PromptTokens\", \"CompletionTokens\", \"TotalTokens\", \"CostUSD\", \"StatusCode\", \"LatencyMs\", \"EventTimestamp\"}),",
+                                "    typed_events = Table.TransformColumnTypes(expanded_events, {{\"PromptTokens\", Int64.Type}, {\"CompletionTokens\", Int64.Type}, {\"TotalTokens\", Int64.Type}, {\"CostUSD\", type number}, {\"StatusCode\", Int64.Type}, {\"LatencyMs\", Int64.Type}, {\"EventTimestamp\", type datetimezone}}),",
+                                "    added_sec = Table.AddColumn(typed_events, \"LatencySeconds\", each [LatencyMs] / 1000, type number)",
                                 "in",
-                                "    typed_telemetry"
+                                "    added_sec"
                             ]
                         }
                     }
@@ -176,6 +219,17 @@ DATA_MODEL_SCHEMA = {
                     {"name": "AppVersion", "dataType": "string", "sourceColumn": "AppVersion"},
                     {"name": "Sentiment", "dataType": "string", "sourceColumn": "Sentiment"},
                     {"name": "IssueCategory", "dataType": "string", "sourceColumn": "IssueCategory"}
+                ],
+                "measures": [
+                    {
+                        "name": "Average App Rating",
+                        "expression": "AVERAGE(Reviews[Rating])",
+                        "formatString": "0.0"
+                    },
+                    {
+                        "name": "Total Reviews Analyzed",
+                        "expression": "COUNTROWS(Reviews)"
+                    }
                 ],
                 "partitions": [
                     {
@@ -224,8 +278,8 @@ REPORT_LAYOUT = {
     "sections": [
         {
             "id": 0,
-            "name": "User_Research_Overview",
-            "displayName": "User Research & Lurking Telemetry",
+            "name": "Real_User_Research_Overview",
+            "displayName": "Executive Real-Time User Monitor",
             "width": 1280,
             "height": 720,
             "visualContainers": []
@@ -234,7 +288,7 @@ REPORT_LAYOUT = {
 }
 
 def create_pbit():
-    print("Building PlayPulse_Live_Monitor.pbit...")
+    print("Building clean real-user PlayPulse_Live_Monitor.pbit...")
     with zipfile.ZipFile(PBIT_PATH, "w", zipfile.ZIP_DEFLATED) as pbit:
         pbit.writestr("[Content_Types].xml", CONTENT_TYPES)
         pbit.writestr("Version", VERSION)

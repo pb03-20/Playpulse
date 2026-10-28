@@ -82,8 +82,27 @@ function ensureDirectoryExists(dir: string) {
   }
 }
 
+const FAKE_EMAILS = new Set([
+  'alex.chen@productleads.io',
+  'sarah.miller@uxresearch.com',
+  'david.kumar@growthmetrics.in',
+  'elena.rostova@appinsights.org',
+  'marcus.vance@venturelab.co',
+  'researcher@playpulse.io',
+]);
+
+function filterRealOnly(store: TelemetryStore): TelemetryStore {
+  return {
+    ...store,
+    users: (store.users || []).filter((u) => !FAKE_EMAILS.has(u.email) && !u.id.startsWith('usr_00')),
+    sessions: (store.sessions || []).filter((s) => !FAKE_EMAILS.has(s.userEmail) && !s.id.startsWith('ses_00')),
+    telemetry: (store.telemetry || []).filter((t) => !FAKE_EMAILS.has(t.userEmail) && !t.id.startsWith('evt_00')),
+    reviews: store.reviews || [],
+  };
+}
+
 function loadStore(): TelemetryStore {
-  if (inMemoryStore) return inMemoryStore;
+  if (inMemoryStore) return filterRealOnly(inMemoryStore);
 
   try {
     ensureDirectoryExists(DATA_DIR);
@@ -95,8 +114,9 @@ function loadStore(): TelemetryStore {
     }
     const raw = fs.readFileSync(STORE_PATH, "utf-8");
     const parsed = JSON.parse(raw) as TelemetryStore;
-    inMemoryStore = parsed;
-    return parsed;
+    const filtered = filterRealOnly(parsed);
+    inMemoryStore = filtered;
+    return filtered;
   } catch {
     const initial = generateSeedData();
     inMemoryStore = initial;
@@ -362,166 +382,12 @@ export function exportToCsvFiles(store: TelemetryStore) {
   fs.writeFileSync(path.join(EXPORT_DIR, "reviews.csv"), toCsv(store.reviews as unknown as Record<string, unknown>[]), "utf-8");
 }
 
-// Seed initial realistic data for instant Power BI demo
+// Only genuine authenticated users and real sessions
 function generateSeedData(): TelemetryStore {
   const now = Date.now();
-  const dayMs = 86400000;
-
-  const users: UserRecord[] = [
-    {
-      id: "usr_001",
-      email: "alex.chen@productleads.io",
-      createdAt: new Date(now - 7 * dayMs).toISOString(),
-      lastActiveAt: new Date(now - 10000).toISOString(),
-      totalSessions: 14,
-      totalDurationSeconds: 3420,
-    },
-    {
-      id: "usr_002",
-      email: "sarah.miller@uxresearch.com",
-      createdAt: new Date(now - 5 * dayMs).toISOString(),
-      lastActiveAt: new Date(now - 30 * 60000).toISOString(),
-      totalSessions: 9,
-      totalDurationSeconds: 2180,
-    },
-    {
-      id: "usr_003",
-      email: "david.kumar@growthmetrics.in",
-      createdAt: new Date(now - 3 * dayMs).toISOString(),
-      lastActiveAt: new Date(now - 2 * 3600000).toISOString(),
-      totalSessions: 6,
-      totalDurationSeconds: 1650,
-    },
-    {
-      id: "usr_004",
-      email: "elena.rostova@appinsights.org",
-      createdAt: new Date(now - 2 * dayMs).toISOString(),
-      lastActiveAt: new Date(now - 4 * 3600000).toISOString(),
-      totalSessions: 4,
-      totalDurationSeconds: 980,
-    },
-    {
-      id: "usr_005",
-      email: "marcus.vance@venturelab.co",
-      createdAt: new Date(now - 1 * dayMs).toISOString(),
-      lastActiveAt: new Date(now - 10 * 3600000).toISOString(),
-      totalSessions: 2,
-      totalDurationSeconds: 430,
-    },
-  ];
-
-  const sessions: SessionRecord[] = [
-    {
-      id: "ses_001",
-      userEmail: "alex.chen@productleads.io",
-      startedAt: new Date(now - 45 * 60000).toISOString(),
-      lastPingAt: new Date(now - 5 * 60000).toISOString(),
-      durationSeconds: 2400,
-      appResearched: "com.whatsapp",
-      questionsCount: 8,
-    },
-    {
-      id: "ses_002",
-      userEmail: "sarah.miller@uxresearch.com",
-      startedAt: new Date(now - 120 * 60000).toISOString(),
-      lastPingAt: new Date(now - 90 * 60000).toISOString(),
-      durationSeconds: 1800,
-      appResearched: "com.spotify.music",
-      questionsCount: 5,
-    },
-    {
-      id: "ses_003",
-      userEmail: "david.kumar@growthmetrics.in",
-      startedAt: new Date(now - 300 * 60000).toISOString(),
-      lastPingAt: new Date(now - 275 * 60000).toISOString(),
-      durationSeconds: 1500,
-      appResearched: "com.instagram.android",
-      questionsCount: 4,
-    },
-  ];
-
-  const telemetry: TelemetryEvent[] = [
-    {
-      id: "evt_001",
-      userEmail: "alex.chen@productleads.io",
-      sessionId: "ses_001",
-      eventType: "scrape",
-      appId: "com.whatsapp",
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      estimatedCostUsd: 0,
-      statusCode: 200,
-      latencyMs: 1420,
-      createdAt: new Date(now - 44 * 60000).toISOString(),
-    },
-    {
-      id: "evt_002",
-      userEmail: "alex.chen@productleads.io",
-      sessionId: "ses_001",
-      eventType: "gemini_ask",
-      appId: "com.whatsapp",
-      question: "What are the top recurring bugs or crash complaints?",
-      questionCategory: "Bugs & Crashes",
-      promptTokens: 2850,
-      completionTokens: 195,
-      totalTokens: 3045,
-      estimatedCostUsd: 0.000272,
-      statusCode: 200,
-      latencyMs: 1890,
-      createdAt: new Date(now - 40 * 60000).toISOString(),
-    },
-    {
-      id: "evt_003",
-      userEmail: "alex.chen@productleads.io",
-      sessionId: "ses_001",
-      eventType: "gemini_ask",
-      appId: "com.whatsapp",
-      question: "Summarise sentiment in 3 bullets",
-      questionCategory: "Sentiment & Overview",
-      promptTokens: 2600,
-      completionTokens: 110,
-      totalTokens: 2710,
-      estimatedCostUsd: 0.000228,
-      statusCode: 200,
-      latencyMs: 1320,
-      createdAt: new Date(now - 35 * 60000).toISOString(),
-    },
-    {
-      id: "evt_004",
-      userEmail: "sarah.miller@uxresearch.com",
-      sessionId: "ses_002",
-      eventType: "api_error",
-      appId: "com.spotify.music",
-      question: "List all user complaints regarding playlist UI",
-      questionCategory: "UI / UX Design",
-      promptTokens: 3100,
-      completionTokens: 0,
-      totalTokens: 3100,
-      estimatedCostUsd: 0.000232,
-      statusCode: 429,
-      errorMessage: "Too many requests right now — rate limit hit",
-      latencyMs: 450,
-      createdAt: new Date(now - 105 * 60000).toISOString(),
-    },
-    {
-      id: "evt_005",
-      userEmail: "david.kumar@growthmetrics.in",
-      sessionId: "ses_003",
-      eventType: "api_error",
-      appId: "com.instagram.android",
-      question: "Detailed sentiment trends for newest version",
-      questionCategory: "Sentiment & Overview",
-      promptTokens: 2400,
-      completionTokens: 0,
-      totalTokens: 2400,
-      estimatedCostUsd: 0.000180,
-      statusCode: 402,
-      errorMessage: "AI credits exhausted. Add credits to keep chatting.",
-      latencyMs: 380,
-      createdAt: new Date(now - 280 * 60000).toISOString(),
-    },
-  ];
+  const users: UserRecord[] = [];
+  const sessions: SessionRecord[] = [];
+  const telemetry: TelemetryEvent[] = [];
 
   const reviews: ScrapedReviewRecord[] = [
     {

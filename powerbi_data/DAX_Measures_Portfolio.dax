@@ -1,0 +1,131 @@
+// ==============================================================================
+// PLAYPULSE LIVE TELEMETRY - POWER BI DAX MEASURES PORTFOLIO
+// Designed for Enterprise User Research & AI Telemetry Analytics
+// ==============================================================================
+
+// ------------------------------------------------------------------------------
+// 1. EXECUTIVE USER METRICS (DimUsers)
+// ------------------------------------------------------------------------------
+
+Total Real Verified Users = 
+DISTINCTCOUNT(Users[Email])
+
+Total User Base Growth = 
+CALCULATE(
+    COUNTROWS(Users),
+    Users[FirstSeen] <= MAX(Users[FirstSeen])
+)
+
+// ------------------------------------------------------------------------------
+// 2. BEHAVIORAL ENGAGEMENT & LURKING METRICS (FactSessions)
+// ------------------------------------------------------------------------------
+
+Total Active Research Minutes = 
+SUM(Sessions[DurationMinutes])
+
+Total Active Hours = 
+DIVIDE([Total Active Research Minutes], 60, 0)
+
+Total Sessions Count = 
+COUNTROWS(Sessions)
+
+Avg Session Duration Minutes = 
+DIVIDE([Total Active Research Minutes], [Total Sessions Count], 0)
+
+// Lurking defined as sessions where user explored/read reviews without asking AI questions
+Lurking Sessions Count = 
+CALCULATE(
+    COUNTROWS(Sessions),
+    Sessions[QuestionsCount] = 0
+)
+
+Lurking Minutes = 
+CALCULATE(
+    SUM(Sessions[DurationMinutes]),
+    Sessions[QuestionsCount] = 0
+)
+
+Lurking Ratio % = 
+DIVIDE([Lurking Minutes], [Total Active Research Minutes], 0)
+
+Active AI Engagement Ratio % = 
+1 - [Lurking Ratio %]
+
+User Behavioral Segment = 
+VAR LurkRatio = [Lurking Ratio %]
+RETURN
+    IF(
+        ISBLANK(LurkRatio),
+        "New / Inactive",
+        IF(
+            LurkRatio >= 0.70,
+            "Deep Reader / Lurker (>=70% reading)",
+            IF(
+                LurkRatio >= 0.30,
+                "Balanced Researcher",
+                "High-Velocity AI Prompter"
+            )
+        )
+    )
+
+// ------------------------------------------------------------------------------
+// 3. AI RESOURCE CONSUMPTION & FINOPS (FactTelemetry)
+// ------------------------------------------------------------------------------
+
+Total AI Prompts Asked = 
+CALCULATE(
+    COUNTROWS(Telemetry),
+    Telemetry[EventType] = "gemini_ask"
+)
+
+Total Prompt Tokens = 
+SUM(Telemetry[PromptTokens])
+
+Total Completion Tokens = 
+SUM(Telemetry[CompletionTokens])
+
+Total Tokens Burned = 
+SUM(Telemetry[TotalTokens])
+
+Total Gemini Cost ($) = 
+SUM(Telemetry[CostUSD])
+
+Cost Per Active Hour = 
+DIVIDE([Total Gemini Cost ($)], [Total Active Hours], 0)
+
+Cost Per User ($) = 
+DIVIDE([Total Gemini Cost ($)], [Total Real Verified Users], 0)
+
+Avg API Latency (Seconds) = 
+AVERAGE(Telemetry[LatencySeconds])
+
+API Success Rate % = 
+DIVIDE(
+    CALCULATE(COUNTROWS(Telemetry), Telemetry[StatusCode] = 200),
+    COUNTROWS(Telemetry),
+    1
+)
+
+// ------------------------------------------------------------------------------
+// 4. GOOGLE PLAY SENTIMENT & VOICE OF CUSTOMER (DimReviews)
+// ------------------------------------------------------------------------------
+
+Total Reviews Analyzed = 
+COUNTROWS(Reviews)
+
+Average App Rating = 
+AVERAGE(Reviews[Rating])
+
+Positive Sentiment Ratio % = 
+DIVIDE(
+    CALCULATE(COUNTROWS(Reviews), Reviews[Sentiment] = "Positive"),
+    [Total Reviews Analyzed],
+    0
+)
+
+Negative Sentiment Ratio % = 
+DIVIDE(
+    CALCULATE(COUNTROWS(Reviews), Reviews[Sentiment] = "Negative"),
+    [Total Reviews Analyzed],
+    0
+)

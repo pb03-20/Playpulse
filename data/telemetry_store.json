@@ -4,211 +4,32 @@
       "id": "usr_1793206824748_ozhtz",
       "email": "baghelapriyanshu67@gmail.com",
       "createdAt": "2026-10-28T17:00:24.748Z",
-      "lastActiveAt": "2026-10-28T17:33:17.082Z",
+      "lastActiveAt": "2026-10-28T17:41:50.161Z",
       "totalSessions": 1,
-      "totalDurationSeconds": 525
-    },
-    {
-      "id": "usr_1793205941820_4x3ux",
-      "email": "researcher@playpulse.io",
-      "createdAt": "2026-10-28T16:45:41.820Z",
-      "lastActiveAt": "2026-10-28T16:58:47.064Z",
-      "totalSessions": 1,
-      "totalDurationSeconds": 315
-    },
-    {
-      "id": "usr_001",
-      "email": "alex.chen@productleads.io",
-      "createdAt": "2026-10-21T16:23:22.180Z",
-      "lastActiveAt": "2026-10-28T16:23:12.180Z",
-      "totalSessions": 14,
-      "totalDurationSeconds": 3420
-    },
-    {
-      "id": "usr_002",
-      "email": "sarah.miller@uxresearch.com",
-      "createdAt": "2026-10-23T16:23:22.180Z",
-      "lastActiveAt": "2026-10-28T15:53:22.180Z",
-      "totalSessions": 9,
-      "totalDurationSeconds": 2180
-    },
-    {
-      "id": "usr_003",
-      "email": "david.kumar@growthmetrics.in",
-      "createdAt": "2026-10-25T16:23:22.180Z",
-      "lastActiveAt": "2026-10-28T14:23:22.180Z",
-      "totalSessions": 6,
-      "totalDurationSeconds": 1650
-    },
-    {
-      "id": "usr_004",
-      "email": "elena.rostova@appinsights.org",
-      "createdAt": "2026-10-26T16:23:22.180Z",
-      "lastActiveAt": "2026-10-28T12:23:22.180Z",
-      "totalSessions": 4,
-      "totalDurationSeconds": 980
-    },
-    {
-      "id": "usr_005",
-      "email": "marcus.vance@venturelab.co",
-      "createdAt": "2026-10-27T16:23:22.180Z",
-      "lastActiveAt": "2026-10-28T06:23:22.180Z",
-      "totalSessions": 2,
-      "totalDurationSeconds": 430
+      "totalDurationSeconds": 750
     }
   ],
   "sessions": [
     {
+      "id": "ses_1793206651757_85my4",
+      "userEmail": "baghelapriyanshu67@gmail.com",
+      "startedAt": "2026-10-28T17:40:50.269Z",
+      "lastPingAt": "2026-10-28T17:41:50.161Z",
+      "durationSeconds": 225,
+      "appResearched": "com.whatsapp",
+      "questionsCount": 0
+    },
+    {
       "id": "ses_1793206932998_66424",
       "userEmail": "baghelapriyanshu67@gmail.com",
       "startedAt": "2026-10-28T17:02:28.064Z",
-      "lastPingAt": "2026-10-28T17:33:17.073Z",
+      "lastPingAt": "2026-10-28T17:41:50.153Z",
       "durationSeconds": 525,
       "appResearched": "com.whatsapp",
       "questionsCount": 0
-    },
-    {
-      "id": "ses_1793206651757_85my4",
-      "userEmail": "researcher@playpulse.io",
-      "startedAt": "2026-10-28T16:57:46.818Z",
-      "lastPingAt": "2026-10-28T17:33:17.082Z",
-      "durationSeconds": 645,
-      "appResearched": "com.whatsapp",
-      "questionsCount": 0
-    },
-    {
-      "id": "ses_1793205562005_pvt31",
-      "userEmail": "researcher@playpulse.io",
-      "startedAt": "2026-10-28T16:39:37.053Z",
-      "lastPingAt": "2026-10-28T16:52:34.600Z",
-      "durationSeconds": 240,
-      "appResearched": "com.whatsapp",
-      "questionsCount": 0
-    },
-    {
-      "id": "ses_001",
-      "userEmail": "alex.chen@productleads.io",
-      "startedAt": "2026-10-28T15:38:22.180Z",
-      "lastPingAt": "2026-10-28T16:18:22.180Z",
-      "durationSeconds": 2400,
-      "appResearched": "com.whatsapp",
-      "questionsCount": 8
-    },
-    {
-      "id": "ses_002",
-      "userEmail": "sarah.miller@uxresearch.com",
-      "startedAt": "2026-10-28T14:23:22.180Z",
-      "lastPingAt": "2026-10-28T14:53:22.180Z",
-      "durationSeconds": 1800,
-      "appResearched": "com.spotify.music",
-      "questionsCount": 5
-    },
-    {
-      "id": "ses_003",
-      "userEmail": "david.kumar@growthmetrics.in",
-      "startedAt": "2026-10-28T11:23:22.180Z",
-      "lastPingAt": "2026-10-28T11:48:22.180Z",
-      "durationSeconds": 1500,
-      "appResearched": "com.instagram.android",
-      "questionsCount": 4
     }
   ],
-  "telemetry": [
-    {
-      "userEmail": "researcher@playpulse.io",
-      "sessionId": "ses_1793205562005_pvt31",
-      "eventType": "scrape",
-      "appId": "com.whatsapp",
-      "promptTokens": 0,
-      "completionTokens": 0,
-      "totalTokens": 0,
-      "statusCode": 200,
-      "latencyMs": 1513,
-      "id": "evt_1793205943334_0tnp9",
-      "estimatedCostUsd": 0,
-      "createdAt": "2026-10-28T16:45:43.334Z"
-    },
-    {
-      "id": "evt_001",
-      "userEmail": "alex.chen@productleads.io",
-      "sessionId": "ses_001",
-      "eventType": "scrape",
-      "appId": "com.whatsapp",
-      "promptTokens": 0,
-      "completionTokens": 0,
-      "totalTokens": 0,
-      "estimatedCostUsd": 0,
-      "statusCode": 200,
-      "latencyMs": 1420,
-      "createdAt": "2026-10-28T15:39:22.180Z"
-    },
-    {
-      "id": "evt_002",
-      "userEmail": "alex.chen@productleads.io",
-      "sessionId": "ses_001",
-      "eventType": "gemini_ask",
-      "appId": "com.whatsapp",
-      "question": "What are the top recurring bugs or crash complaints?",
-      "questionCategory": "Bugs & Crashes",
-      "promptTokens": 2850,
-      "completionTokens": 195,
-      "totalTokens": 3045,
-      "estimatedCostUsd": 0.000272,
-      "statusCode": 200,
-      "latencyMs": 1890,
-      "createdAt": "2026-10-28T15:43:22.180Z"
-    },
-    {
-      "id": "evt_003",
-      "userEmail": "alex.chen@productleads.io",
-      "sessionId": "ses_001",
-      "eventType": "gemini_ask",
-      "appId": "com.whatsapp",
-      "question": "Summarise sentiment in 3 bullets",
-      "questionCategory": "Sentiment & Overview",
-      "promptTokens": 2600,
-      "completionTokens": 110,
-      "totalTokens": 2710,
-      "estimatedCostUsd": 0.000228,
-      "statusCode": 200,
-      "latencyMs": 1320,
-      "createdAt": "2026-10-28T15:48:22.180Z"
-    },
-    {
-      "id": "evt_004",
-      "userEmail": "sarah.miller@uxresearch.com",
-      "sessionId": "ses_002",
-      "eventType": "api_error",
-      "appId": "com.spotify.music",
-      "question": "List all user complaints regarding playlist UI",
-      "questionCategory": "UI / UX Design",
-      "promptTokens": 3100,
-      "completionTokens": 0,
-      "totalTokens": 3100,
-      "estimatedCostUsd": 0.000232,
-      "statusCode": 429,
-      "errorMessage": "Too many requests right now — rate limit hit",
-      "latencyMs": 450,
-      "createdAt": "2026-10-28T14:38:22.180Z"
-    },
-    {
-      "id": "evt_005",
-      "userEmail": "david.kumar@growthmetrics.in",
-      "sessionId": "ses_003",
-      "eventType": "api_error",
-      "appId": "com.instagram.android",
-      "question": "Detailed sentiment trends for newest version",
-      "questionCategory": "Sentiment & Overview",
-      "promptTokens": 2400,
-      "completionTokens": 0,
-      "totalTokens": 2400,
-      "estimatedCostUsd": 0.00018,
-      "statusCode": 402,
-      "errorMessage": "AI credits exhausted. Add credits to keep chatting.",
-      "latencyMs": 380,
-      "createdAt": "2026-10-28T11:43:22.180Z"
-    }
-  ],
+  "telemetry": [],
   "reviews": [
     {
       "reviewId": "552fa283-9674-4328-b789-59b24ebae2d8",
