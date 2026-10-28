@@ -184,44 +184,68 @@ export const askReviews = createServerFn({ method: "POST" })
     // Estimate prompt tokens if needed (avg 4 chars per token)
     const estimatedPromptTokens = Math.round((SYSTEM_PROMPT.length + userPrompt.length) / 4);
 
-    let res: Response;
-    try {
-      res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gemini-3.6-flash",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            ...data.history.slice(-6),
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      });
-    } catch (networkErr) {
-      logTelemetryEvent({
-        userEmail: data.userEmail,
-        sessionId: data.sessionId,
-        eventType: "api_error",
-        appId: data.appId,
-        question: data.question,
-        questionCategory: category,
-        promptTokens: estimatedPromptTokens,
-        completionTokens: 0,
-        totalTokens: estimatedPromptTokens,
-        statusCode: 500,
-        errorMessage: networkErr instanceof Error ? networkErr.message : "Network error contacting Gemini",
-        latencyMs: Date.now() - start,
-      });
-      throw networkErr;
+    // Cascade of resilient Gemini models in case of high-demand 503 spikes
+    const CANDIDATE_MODELS = [
+      "gemini-3.6-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+    ];
+
+    let res: Response | null = null;
+    let lastError: Error | null = null;
+    let lastErrorStatus = 503;
+    let lastErrorBody = "";
+
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const attemptRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              ...data.history.slice(-6),
+              { role: "user", content: userPrompt },
+            ],
+          }),
+        });
+
+        if (attemptRes.ok) {
+          res = attemptRes;
+          break;
+        }
+
+        const status = attemptRes.status;
+        const errText = await attemptRes.text();
+        lastErrorStatus = status;
+        lastErrorBody = errText;
+
+        // If 503 (model high demand / temporary surge), 502, 504, or 429: immediately failover to next model
+        if (status === 503 || status === 429 || status >= 500) {
+          console.warn(`[Gemini Cascade] ${model} unavailable (${status}). Failing over to next model...`);
+          lastError = new Error(`Model ${model} returned ${status}`);
+          await new Promise((r) => setTimeout(r, 350));
+          continue;
+        }
+
+        // For non-recoverable errors (e.g. 401, 402), do not retry
+        res = attemptRes;
+        break;
+      } catch (networkErr) {
+        lastError = networkErr instanceof Error ? networkErr : new Error(String(networkErr));
+        console.warn(`[Gemini Cascade] Network issue on ${model}:`, lastError.message);
+      }
     }
 
-    if (!res.ok) {
-      const body = await res.text();
+    if (!res || !res.ok) {
       const latencyMs = Date.now() - start;
+      const status = res ? res.status : lastErrorStatus;
+      const body = lastErrorBody || (lastError ? lastError.message : "Temporary demand spike");
 
       // Log failure in telemetry
       logTelemetryEvent({
@@ -234,14 +258,21 @@ export const askReviews = createServerFn({ method: "POST" })
         promptTokens: estimatedPromptTokens,
         completionTokens: 0,
         totalTokens: estimatedPromptTokens,
-        statusCode: res.status,
+        statusCode: status,
         errorMessage: body.slice(0, 200),
         latencyMs,
       });
 
-      if (res.status === 429) throw new Error("Too many requests right now — try again in a moment.");
-      if (res.status === 402) throw new Error("AI credits exhausted. Add credits to keep chatting.");
-      throw new Error(`AI request failed [${res.status}]: ${body.slice(0, 300)}`);
+      if (status === 503) {
+        throw new Error("Gemini AI is currently experiencing high demand. Please try asking again in a few seconds!");
+      }
+      if (status === 429) {
+        throw new Error("Too many requests right now — try again in a moment.");
+      }
+      if (status === 402) {
+        throw new Error("AI credits exhausted. Add credits to keep chatting.");
+      }
+      throw new Error(`AI request failed [${status}]: ${body.slice(0, 250)}`);
     }
 
     const json = (await res.json()) as {
