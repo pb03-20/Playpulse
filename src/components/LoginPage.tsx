@@ -147,7 +147,7 @@ export function LoginPage({ onLoginSuccess, clientId }: LoginPageProps) {
           <div className="mb-6 text-center">
             <h2 className="text-lg font-semibold text-foreground">Sign In to Continue</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Authenticate to track sessions, analyze reviews, and stream live metrics to Power BI
+              Sign in with Google to explore reviews, analyze customer sentiment, and chat with AI
             </p>
           </div>
 
@@ -196,7 +196,7 @@ export function LoginPage({ onLoginSuccess, clientId }: LoginPageProps) {
                 </div>
                 <div>
                   <label htmlFor="userName" className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Researcher Name (Optional)
+                    Your Name (Optional)
                   </label>
                   <input
                     id="userName"
@@ -227,20 +227,20 @@ export function LoginPage({ onLoginSuccess, clientId }: LoginPageProps) {
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
-                <span>Gemini 3.6 Flash user-research dialogue</span>
+                <span>Gemini Flash AI user-research dialogue</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
-                <span>Live Power BI telemetry (tokens, duration, friction errors)</span>
+                <span>Instant sentiment analysis and recurring bug detection</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Live Power BI Status pill at footer */}
+        {/* Secure Auth pill at footer */}
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 text-emerald-400" />
-          <span>Encrypted Telemetry & Live Power BI Connector Ready</span>
+          <span>Secure Google OAuth 2.0 Authentication</span>
         </div>
       </div>
     </div>

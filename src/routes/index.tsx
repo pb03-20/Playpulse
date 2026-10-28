@@ -252,67 +252,39 @@ function Index() {
           </div>
         </div>
 
-        {/* Live Power BI & Researcher Telemetry Pill */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-            title="Open Live Telemetry Command Center"
-          >
-            <Activity className="size-3.5" />
-            <span>Live Analytics</span>
-          </Link>
-
-          <a
-            href="/api/powerbi/feed"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open live JSON telemetry feed for Power BI"
-            className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
-          >
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
-            </span>
-            <BarChart3 className="size-3.5" />
-            <span>Power BI Feed</span>
-          </a>
-
-
-          {/* Authenticated Researcher Profile Card */}
-          <div className="flex items-center gap-2 rounded-full border border-glass-border bg-glass/80 px-2.5 py-1 shadow-sm backdrop-blur-sm">
-            {currentUser.picture ? (
-              <img
-                src={currentUser.picture}
-                alt={currentUser.name}
-                className="size-6 rounded-full object-cover border border-primary/20"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-primary">
-                <User className="size-3.5" />
-              </div>
-            )}
-            <div className="flex flex-col text-left max-w-[130px] sm:max-w-[180px]">
-              <span className="truncate text-xs font-semibold text-foreground leading-tight">
-                {currentUser.name}
-              </span>
-              <span className="truncate text-[10px] text-muted-foreground leading-tight">
-                {currentUser.email}
-              </span>
+        {/* Authenticated User Profile */}
+        <div className="flex items-center gap-2 rounded-full border border-glass-border bg-glass/80 px-3 py-1.5 shadow-sm backdrop-blur-sm">
+          {currentUser.picture ? (
+            <img
+              src={currentUser.picture}
+              alt={currentUser.name}
+              className="size-6 rounded-full object-cover border border-primary/20"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-primary">
+              <User className="size-3.5" />
             </div>
-            <button
-              onClick={() => {
-                setCurrentUser(null);
-                localStorage.removeItem("playpulse_google_user");
-                localStorage.removeItem("playpulse_user_email");
-              }}
-              title="Sign Out"
-              className="ml-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-destructive"
-            >
-              <LogOut className="size-3.5" />
-            </button>
+          )}
+          <div className="flex flex-col text-left max-w-[130px] sm:max-w-[180px]">
+            <span className="truncate text-xs font-semibold text-foreground leading-tight">
+              {currentUser.name}
+            </span>
+            <span className="truncate text-[10px] text-muted-foreground leading-tight">
+              {currentUser.email}
+            </span>
           </div>
+          <button
+            onClick={() => {
+              setCurrentUser(null);
+              localStorage.removeItem("playpulse_google_user");
+              localStorage.removeItem("playpulse_user_email");
+            }}
+            title="Sign Out"
+            className="ml-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-destructive"
+          >
+            <LogOut className="size-3.5" />
+          </button>
         </div>
       </header>
 
