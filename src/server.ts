@@ -104,10 +104,11 @@ export default {
         }
 
         const table = url.pathname.replace("/api/powerbi/", "").toLowerCase();
-        if (["users", "sessions", "telemetry", "reviews"].includes(table)) {
+        if (["users", "sessions", "telemetry", "reviews", "failures", "failureoccurrences"].includes(table)) {
           const dataset = getFullDataset();
+          const targetKey = table === "failures" || table === "failureoccurrences" ? "failureOccurrences" : table;
           if (format === "csv") {
-            const csv = getTableCsv(table as "users" | "sessions" | "telemetry" | "reviews");
+            const csv = getTableCsv(targetKey as "users" | "sessions" | "telemetry" | "reviews");
             return new Response(csv, {
               headers: {
                 "Content-Type": "text/csv; charset=utf-8",
@@ -117,7 +118,7 @@ export default {
             });
           }
           return new Response(
-            JSON.stringify((dataset as Record<string, unknown>)[table], null, 2),
+            JSON.stringify((dataset as Record<string, unknown>)[targetKey], null, 2),
             {
               headers: {
                 "Content-Type": "application/json",

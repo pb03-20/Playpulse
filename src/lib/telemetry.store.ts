@@ -323,6 +323,45 @@ export function getFullDataset() {
   const errorEvents = store.telemetry.filter((t) => t.statusCode >= 400);
   const lastError = errorEvents.length > 0 ? errorEvents[0] : null;
 
+  const demandSurges = store.telemetry.filter((t) => t.statusCode === 503).length;
+  const rateLimits = store.telemetry.filter((t) => t.statusCode === 429).length;
+  const creditExhaustions = store.telemetry.filter((t) => t.statusCode === 402).length;
+  const authFailures = store.telemetry.filter((t) => t.statusCode === 401 || t.statusCode === 403).length;
+  const networkScrapingFailures = store.telemetry.filter((t) => t.statusCode >= 500 && t.statusCode !== 503).length;
+
+  const failureOccurrences = [
+    {
+      failureType: "Demand Surge (503)",
+      occurrences: demandSurges,
+      status: demandSurges > 0 ? "Alert" : "Normal",
+      impact: "Temporary Google model high demand spike",
+    },
+    {
+      failureType: "Rate Limit (429)",
+      occurrences: rateLimits,
+      status: rateLimits > 0 ? "Alert" : "Normal",
+      impact: "Too many prompt requests per minute",
+    },
+    {
+      failureType: "Credit Exhaustion (402)",
+      occurrences: creditExhaustions,
+      status: creditExhaustions > 0 ? "Critical" : "Normal",
+      impact: "Gemini API billing or free credits depleted",
+    },
+    {
+      failureType: "Auth / Key Missing (401)",
+      occurrences: authFailures,
+      status: authFailures > 0 ? "Critical" : "Normal",
+      impact: "Invalid or missing GEMINI_API_KEY",
+    },
+    {
+      failureType: "Scrape / Network Error",
+      occurrences: networkScrapingFailures,
+      status: networkScrapingFailures > 0 ? "Warning" : "Normal",
+      impact: "Play Store review scraping network failure",
+    },
+  ];
+
   return {
     summary: {
       totalUsers: store.users.length,
@@ -332,14 +371,19 @@ export function getFullDataset() {
       totalTokensConsumed: totalTokens,
       estimatedCostUsd: Number(totalCost.toFixed(4)),
       totalErrorCount: errorEvents.length,
-      quotaErrorsCount: store.telemetry.filter((t) => t.statusCode === 429 || t.statusCode === 402).length,
-      demandErrorsCount: store.telemetry.filter((t) => t.statusCode === 503).length,
+      demandErrorsCount: demandSurges,
+      rateLimitErrorsCount: rateLimits,
+      quotaErrorsCount: creditExhaustions + rateLimits,
+      creditExhaustErrorsCount: creditExhaustions,
+      authErrorsCount: authFailures,
+      networkErrorsCount: networkScrapingFailures,
       latestErrorMessage: lastError ? (lastError.errorMessage || `HTTP ${lastError.statusCode}`) : "None - All Systems Operational",
       lastErrorStatusCode: lastError ? lastError.statusCode : 200,
       apiHealthStatus: lastError ? (lastError.statusCode === 402 ? "Credits Exhausted (402)" : lastError.statusCode === 429 ? "Rate Limit Hit (429)" : lastError.statusCode === 503 ? "Demand Surge (503)" : `Error (${lastError.statusCode})`) : "Healthy (100% OK)",
-      isQuotaExhausted: store.telemetry.some((t) => t.statusCode === 402 || t.statusCode === 429),
+      isQuotaExhausted: creditExhaustions > 0 || rateLimits > 0,
       lastRefreshedAt: new Date().toISOString(),
     },
+    failureOccurrences,
     users: store.users,
     sessions: store.sessions,
     telemetry: store.telemetry,
