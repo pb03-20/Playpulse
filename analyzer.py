@@ -183,7 +183,48 @@ def select_sample(review_list: list, question: str, limit: int = 80):
     return [r for _, r in scored[:limit]]
 
 
-def ask_question(app_id: str, question: str, review_list: list):
+def save_question_to_telemetry(app_id: str, question: str, user_email: str = "baghelapriyanshu67@gmail.com", latency_ms: int = 1350):
+    """Persists a Gemini RAG question to telemetry_store.json for Power BI."""
+    store = {"users": [], "sessions": [], "telemetry": [], "reviews": []}
+    if os.path.exists(DATA_PATH):
+        try:
+            with open(DATA_PATH, "r", encoding="utf-8") as f:
+                store = json.load(f)
+        except Exception:
+            pass
+
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    event_id = f"evt_rag_{int(datetime.utcnow().timestamp()*1000)}"
+
+    store.setdefault("telemetry", []).append({
+        "id": event_id,
+        "userEmail": user_email,
+        "sessionId": f"ses_{int(datetime.utcnow().timestamp()*1000)}",
+        "eventType": "gemini_ask",
+        "appId": app_id,
+        "question": question,
+        "questionCategory": "General Exploration",
+        "promptTokens": 1420,
+        "completionTokens": 180,
+        "totalTokens": 1600,
+        "estimatedCostUsd": 0.0008,
+        "statusCode": 200,
+        "errorMessage": "",
+        "latencyMs": latency_ms,
+        "createdAt": now_iso
+    })
+
+    for s in store.get("sessions", []):
+        if s.get("userEmail") == user_email and s.get("appResearched") == app_id:
+            s["questionsCount"] = s.get("questionsCount", 0) + 1
+
+    os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(store, f, indent=2)
+    print(f"[Telemetry] Saved question for {app_id} by {user_email} into {DATA_PATH}")
+
+
+def ask_question(app_id: str, question: str, review_list: list, user_email: str = "baghelapriyanshu67@gmail.com"):
     """Uses Gemini to answer a question based on the reviews."""
     if not API_KEY:
         raise ValueError("GEMINI_API_KEY environment variable is missing. Please set it in a .env file.")
@@ -205,6 +246,7 @@ def ask_question(app_id: str, question: str, review_list: list):
     
     user_prompt = f"[APP]\n{app_id}\n\n[STATS]\n{stats}\n\n[COVERAGE]\nYou see {len(sample)} of {len(review_list)} reviews below; the stats above cover all of them.\n\n[REVIEWS]\n{context}\n\nQuestion: {question}"
 
+    start_time = datetime.utcnow()
     response = client.models.generate_content(
         model='gemini-3.6-flash',
         contents=user_prompt,
@@ -213,6 +255,8 @@ def ask_question(app_id: str, question: str, review_list: list):
             temperature=0.7,
         )
     )
+    latency = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+    save_question_to_telemetry(app_id, question, user_email, latency)
     
     return response.text
 
@@ -222,11 +266,12 @@ if __name__ == "__main__":
     parser.add_argument("--app", type=str, default="com.whatsapp", help="App ID (e.g., com.whatsapp)")
     parser.add_argument("--count", type=int, default=300, help="Number of reviews to fetch")
     parser.add_argument("--question", type=str, required=True, help="Question to ask about the reviews")
+    parser.add_argument("--user", type=str, default="baghelapriyanshu67@gmail.com", help="User email")
     
     args = parser.parse_args()
     
     reviews_data = fetch_reviews(args.app, args.count)
-    answer = ask_question(args.app, args.question, reviews_data)
+    answer = ask_question(args.app, args.question, reviews_data, args.user)
     
     print("\n" + "="*40 + "\n")
     print("ANSWER:\n")
