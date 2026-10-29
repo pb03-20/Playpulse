@@ -67,6 +67,19 @@ def calculate_kpis(store):
     sessions = store.get("sessions", [])
     telemetry = store.get("telemetry", [])
 
+    # Distinct user accounts from emails across users, sessions, and telemetry
+    user_emails_set = set()
+    for u in users:
+        if u.get("email"): user_emails_set.add(u["email"].lower())
+    for s in sessions:
+        if s.get("userEmail"): user_emails_set.add(s["userEmail"].lower())
+    for t in telemetry:
+        if t.get("userEmail"): user_emails_set.add(t["userEmail"].lower())
+    user_emails_set.discard("anonymous")
+    user_emails_set.discard("none")
+    user_emails_set.discard("researcher@playpulse.io")
+    total_test_accounts = max(len(user_emails_set), len(users))
+
     # Distinct apps across all tables
     app_set = set()
     for r in reviews:
@@ -91,18 +104,18 @@ def calculate_kpis(store):
 
     return [
         {
-            "Total Test Accounts": len(users),
+            "Total Test Accounts": total_test_accounts,
             "Total Apps Analyzed": len(app_set),
             "Total Reviews Collected": len(reviews),
             "Completed Analyses": completed_analyses,
             "RAG Questions": len(rag_events),
             "Analysis Success Rate": success_rate,
             "Metric": "Total Test Accounts",
-            "Value": len(users),
+            "Value": total_test_accounts,
             "Description": "Number of accounts created"
         },
         {
-            "Total Test Accounts": len(users),
+            "Total Test Accounts": total_test_accounts,
             "Total Apps Analyzed": len(app_set),
             "Total Reviews Collected": len(reviews),
             "Completed Analyses": completed_analyses,
@@ -113,7 +126,7 @@ def calculate_kpis(store):
             "Description": "Unique Google Play apps analyzed"
         },
         {
-            "Total Test Accounts": len(users),
+            "Total Test Accounts": total_test_accounts,
             "Total Apps Analyzed": len(app_set),
             "Total Reviews Collected": len(reviews),
             "Completed Analyses": completed_analyses,
@@ -124,7 +137,7 @@ def calculate_kpis(store):
             "Description": "Unique reviews stored"
         },
         {
-            "Total Test Accounts": len(users),
+            "Total Test Accounts": total_test_accounts,
             "Total Apps Analyzed": len(app_set),
             "Total Reviews Collected": len(reviews),
             "Completed Analyses": completed_analyses,
@@ -135,7 +148,7 @@ def calculate_kpis(store):
             "Description": "Successfully completed analysis jobs"
         },
         {
-            "Total Test Accounts": len(users),
+            "Total Test Accounts": total_test_accounts,
             "Total Apps Analyzed": len(app_set),
             "Total Reviews Collected": len(reviews),
             "Completed Analyses": completed_analyses,
@@ -146,7 +159,7 @@ def calculate_kpis(store):
             "Description": "Total questions submitted"
         },
         {
-            "Total Test Accounts": len(users),
+            "Total Test Accounts": total_test_accounts,
             "Total Apps Analyzed": len(app_set),
             "Total Reviews Collected": len(reviews),
             "Completed Analyses": completed_analyses,

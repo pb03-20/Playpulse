@@ -92,7 +92,6 @@ const FAKE_EMAILS = new Set([
   'david.kumar@growthmetrics.in',
   'elena.rostova@appinsights.org',
   'marcus.vance@venturelab.co',
-  'researcher@playpulse.io',
 ]);
 
 function filterRealOnly(store: TelemetryStore): TelemetryStore {
@@ -105,27 +104,27 @@ function filterRealOnly(store: TelemetryStore): TelemetryStore {
   };
 }
 
+import defaultStoreData from "../../data/telemetry_store.json";
+
 function loadStore(): TelemetryStore {
   if (inMemoryStore) return filterRealOnly(inMemoryStore);
 
   try {
-    ensureDirectoryExists(DATA_DIR);
-    if (!fs.existsSync(STORE_PATH)) {
-      const initial = generateSeedData();
-      saveStore(initial);
-      inMemoryStore = initial;
-      return initial;
+    if (fs.existsSync(STORE_PATH)) {
+      const raw = fs.readFileSync(STORE_PATH, "utf-8");
+      const parsed = JSON.parse(raw) as TelemetryStore;
+      const filtered = filterRealOnly(parsed);
+      inMemoryStore = filtered;
+      return filtered;
     }
-    const raw = fs.readFileSync(STORE_PATH, "utf-8");
-    const parsed = JSON.parse(raw) as TelemetryStore;
-    const filtered = filterRealOnly(parsed);
-    inMemoryStore = filtered;
-    return filtered;
   } catch {
-    const initial = generateSeedData();
-    inMemoryStore = initial;
-    return initial;
+    // ignore
   }
+
+  const bundled = (defaultStoreData || generateSeedData()) as unknown as TelemetryStore;
+  const filtered = filterRealOnly(bundled);
+  inMemoryStore = filtered;
+  return filtered;
 }
 
 function saveStore(store: TelemetryStore) {
@@ -635,9 +634,17 @@ export function getMonitoringDashboardDataset() {
   const analysisSuccessRate = analysisJobs.length > 0
     ? Number(((completedAnalysesCount / analysisJobs.length) * 100).toFixed(1))
     : 100.0;
+  const userEmailsSet = new Set<string>();
+  store.users.forEach((u) => u.email && userEmailsSet.add(u.email.toLowerCase()));
+  store.sessions.forEach((s) => s.userEmail && userEmailsSet.add(s.userEmail.toLowerCase()));
+  store.telemetry.forEach((t) => t.userEmail && userEmailsSet.add(t.userEmail.toLowerCase()));
+  userEmailsSet.delete("anonymous");
+  userEmailsSet.delete("none");
+  userEmailsSet.delete("researcher@playpulse.io");
+  const totalTestAccounts = Math.max(userEmailsSet.size, store.users.length);
 
   const kpis = {
-    totalTestAccounts: store.users.length,
+    totalTestAccounts,
     totalAppsAnalyzed: uniqueApps.length,
     totalReviewsCollected: store.reviews.length,
     completedAnalyses: completedAnalysesCount,

@@ -26,3 +26,5 @@ Thumbs.db
 
 # Local tooling metadata
 .l/
+.vercel
+.env*

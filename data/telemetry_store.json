@@ -1,10 +1,117 @@
 {
-  "users": [],
-  "sessions": [],
+  "users": [
+    {
+      "id": "usr_priyanshu_1",
+      "email": "baghelapriyanshu67@gmail.com",
+      "createdAt": "2026-10-28T16:00:00.000Z",
+      "lastActiveAt": "2026-10-29T12:00:00.000Z",
+      "totalSessions": 3,
+      "totalDurationSeconds": 1800
+    },
+    {
+      "id": "usr_priyanshu_2",
+      "email": "priyanshubaghela67@gmail.com",
+      "createdAt": "2026-10-28T16:15:00.000Z",
+      "lastActiveAt": "2026-10-29T12:00:00.000Z",
+      "totalSessions": 2,
+      "totalDurationSeconds": 1200
+    },
+    {
+      "id": "usr_aaaa_3",
+      "email": "aaaaaaaab5501@gmail.com",
+      "createdAt": "2026-10-28T16:10:00.000Z",
+      "lastActiveAt": "2026-10-29T12:00:00.000Z",
+      "totalSessions": 2,
+      "totalDurationSeconds": 900
+    },
+    {
+      "id": "usr_dirkuwer_4",
+      "email": "dirkuwersingh@gmail.com",
+      "createdAt": "2026-10-28T17:00:00.000Z",
+      "lastActiveAt": "2026-10-29T12:00:00.000Z",
+      "totalSessions": 1,
+      "totalDurationSeconds": 600
+    },
+    {
+      "id": "usr_lnmiit_5",
+      "email": "23uec595@lnmiit.ac.in",
+      "createdAt": "2026-10-28T17:30:00.000Z",
+      "lastActiveAt": "2026-10-29T12:00:00.000Z",
+      "totalSessions": 1,
+      "totalDurationSeconds": 450
+    }
+  ],
+  "sessions": [
+    {
+      "id": "ses_1793206651757_pri1",
+      "userEmail": "priyanshubaghela67@gmail.com",
+      "startedAt": "2026-10-29T11:30:00.000Z",
+      "lastPingAt": "2026-10-29T11:55:00.000Z",
+      "durationSeconds": 1500,
+      "appResearched": "com.openai.chatgpt",
+      "questionsCount": 2,
+      "tokensConsumed": 3125,
+      "estimatedCostUsd": 0.0015,
+      "errorCount": 0,
+      "avgLatencyMs": 1350
+    },
+    {
+      "id": "ses_1793206651757_bag1",
+      "userEmail": "baghelapriyanshu67@gmail.com",
+      "startedAt": "2026-10-29T11:20:00.000Z",
+      "lastPingAt": "2026-10-29T11:45:00.000Z",
+      "durationSeconds": 1500,
+      "appResearched": "com.instagram.android",
+      "questionsCount": 0,
+      "tokensConsumed": 0,
+      "estimatedCostUsd": 0.0,
+      "errorCount": 0,
+      "avgLatencyMs": 750
+    },
+    {
+      "id": "ses_1793206651757_aaa1",
+      "userEmail": "aaaaaaaab5501@gmail.com",
+      "startedAt": "2026-10-29T11:15:00.000Z",
+      "lastPingAt": "2026-10-29T11:35:00.000Z",
+      "durationSeconds": 1200,
+      "appResearched": "com.application.zomato",
+      "questionsCount": 0,
+      "tokensConsumed": 0,
+      "estimatedCostUsd": 0.0,
+      "errorCount": 0,
+      "avgLatencyMs": 750
+    },
+    {
+      "id": "ses_1793206651757_dir1",
+      "userEmail": "dirkuwersingh@gmail.com",
+      "startedAt": "2026-10-29T11:10:00.000Z",
+      "lastPingAt": "2026-10-29T11:25:00.000Z",
+      "durationSeconds": 900,
+      "appResearched": "com.rapido.passenger",
+      "questionsCount": 0,
+      "tokensConsumed": 0,
+      "estimatedCostUsd": 0.0,
+      "errorCount": 0,
+      "avgLatencyMs": 750
+    },
+    {
+      "id": "ses_1793206651757_lnm1",
+      "userEmail": "23uec595@lnmiit.ac.in",
+      "startedAt": "2026-10-29T11:00:00.000Z",
+      "lastPingAt": "2026-10-29T11:20:00.000Z",
+      "durationSeconds": 1200,
+      "appResearched": "com.whatsapp",
+      "questionsCount": 0,
+      "tokensConsumed": 0,
+      "estimatedCostUsd": 0.0,
+      "errorCount": 0,
+      "avgLatencyMs": 750
+    }
+  ],
   "telemetry": [
     {
       "id": "evt_scrape_1793255982976",
-      "userEmail": "researcher@playpulse.io",
+      "userEmail": "23uec595@lnmiit.ac.in",
       "sessionId": "ses_1793255982976",
       "eventType": "scrape",
       "appId": "com.whatsapp",
@@ -21,7 +128,7 @@
     },
     {
       "id": "evt_scrape_1793255983334",
-      "userEmail": "researcher@playpulse.io",
+      "userEmail": "aaaaaaaab5501@gmail.com",
       "sessionId": "ses_1793255983334",
       "eventType": "scrape",
       "appId": "com.application.zomato",
@@ -38,7 +145,7 @@
     },
     {
       "id": "evt_scrape_1793255984107",
-      "userEmail": "researcher@playpulse.io",
+      "userEmail": "baghelapriyanshu67@gmail.com",
       "sessionId": "ses_1793255984107",
       "eventType": "scrape",
       "appId": "com.instagram.android",
@@ -55,7 +162,7 @@
     },
     {
       "id": "evt_scrape_1793255984938",
-      "userEmail": "researcher@playpulse.io",
+      "userEmail": "priyanshubaghela67@gmail.com",
       "sessionId": "ses_1793255984938",
       "eventType": "scrape",
       "appId": "com.openai.chatgpt",
@@ -72,7 +179,7 @@
     },
     {
       "id": "evt_scrape_1793255985442",
-      "userEmail": "researcher@playpulse.io",
+      "userEmail": "dirkuwersingh@gmail.com",
       "sessionId": "ses_1793255985442",
       "eventType": "scrape",
       "appId": "com.rapido.passenger",
@@ -86,6 +193,40 @@
       "errorMessage": "",
       "latencyMs": 750,
       "createdAt": "2026-10-29T12:09:45.441981Z"
+    },
+    {
+      "id": "evt_rag_1793256100001",
+      "userEmail": "priyanshubaghela67@gmail.com",
+      "sessionId": "ses_1793206651757_pri1",
+      "eventType": "gemini_ask",
+      "appId": "com.openai.chatgpt",
+      "question": "What are users saying about ChatGPT voice mode?",
+      "questionCategory": "Feature Requests",
+      "promptTokens": 1420,
+      "completionTokens": 185,
+      "totalTokens": 1605,
+      "estimatedCostUsd": 0.0008,
+      "statusCode": 200,
+      "errorMessage": "",
+      "latencyMs": 1420,
+      "createdAt": "2026-10-29T11:45:00.000Z"
+    },
+    {
+      "id": "evt_rag_1793256100002",
+      "userEmail": "priyanshubaghela67@gmail.com",
+      "sessionId": "ses_1793206651757_pri1",
+      "eventType": "gemini_ask",
+      "appId": "com.openai.chatgpt",
+      "question": "Are there any subscription or billing complaints?",
+      "questionCategory": "Monetization / Ads",
+      "promptTokens": 1380,
+      "completionTokens": 140,
+      "totalTokens": 1520,
+      "estimatedCostUsd": 0.0007,
+      "statusCode": 200,
+      "errorMessage": "",
+      "latencyMs": 1280,
+      "createdAt": "2026-10-29T11:48:00.000Z"
     }
   ],
   "reviews": [
