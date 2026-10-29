@@ -415,6 +415,18 @@ class PlayPulseHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"ok": True, "message": "All telemetry counters reset to 0"}, indent=2).encode("utf-8"))
             return
 
+        # Route 8: Admin Controller Page
+        if path in ("/admin", "/control"):
+            admin_file = os.path.join(os.path.dirname(__file__), "admin.html")
+            if os.path.exists(admin_file):
+                with open(admin_file, "r", encoding="utf-8") as f:
+                    html_content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html_content.encode("utf-8"))
+                return
+
         # Default 404
         self.send_response(404)
         self.send_header("Content-Type", "application/json")

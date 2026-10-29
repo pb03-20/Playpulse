@@ -49,6 +49,17 @@ export default {
     try {
       const url = new URL(request.url);
 
+      // Dedicated Admin Controller Website (/admin or /control)
+      if (url.pathname === "/admin" || url.pathname === "/control" || url.pathname === "/reset-dashboard") {
+        const { renderAdminPage } = await import("./lib/admin-page");
+        return new Response(renderAdminPage(), {
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
       // Handle Power BI Data Endpoints
       if (url.pathname.startsWith("/api/powerbi")) {
         const {

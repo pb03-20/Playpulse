@@ -14,7 +14,7 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "telemetry_store.json")
 
-def save_reviews_to_telemetry(app_id: str, review_list: list):
+def save_reviews_to_telemetry(app_id: str, review_list: list, user_email: str = "baghelapriyanshu67@gmail.com"):
     """Persists scraped Google Play reviews to telemetry_store.json for Power BI."""
     if not review_list:
         return
@@ -58,7 +58,7 @@ def save_reviews_to_telemetry(app_id: str, review_list: list):
     # Record a scraping telemetry event
     store.setdefault("telemetry", []).append({
         "id": f"evt_scrape_{int(datetime.utcnow().timestamp()*1000)}",
-        "userEmail": "researcher@playpulse.io",
+        "userEmail": user_email,
         "sessionId": f"ses_{int(datetime.utcnow().timestamp()*1000)}",
         "eventType": "scrape",
         "appId": app_id,
@@ -115,7 +115,7 @@ How to write:
 - No AI disclaimers, no "As an AI...", no filler like "It's clear that" or "Overall users feel"."""
 
 
-def fetch_reviews(app_id: str, count: int = 300, lang: str = "en", country: str = "us"):
+def fetch_reviews(app_id: str, count: int = 300, lang: str = "en", country: str = "us", user_email: str = "baghelapriyanshu67@gmail.com"):
     """Fetches reviews for a given app ID."""
     print(f"Fetching {count} reviews for {app_id}...")
     result, _ = reviews(
@@ -125,7 +125,7 @@ def fetch_reviews(app_id: str, count: int = 300, lang: str = "en", country: str 
         sort=Sort.NEWEST,
         count=count
     )
-    save_reviews_to_telemetry(app_id, result)
+    save_reviews_to_telemetry(app_id, result, user_email)
     return result
 
 
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    reviews_data = fetch_reviews(args.app, args.count)
+    reviews_data = fetch_reviews(args.app, args.count, user_email=args.user)
     answer = ask_question(args.app, args.question, reviews_data, args.user)
     
     print("\n" + "="*40 + "\n")

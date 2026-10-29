@@ -254,29 +254,6 @@ function Index() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Reset Metrics to 0 Button */}
-          <button
-            onClick={async () => {
-              if (window.confirm("Reset all Power BI monitoring counters back to 0?")) {
-                try {
-                  const res = await fetch("/api/powerbi/reset", { method: "POST" });
-                  if (res.ok) {
-                    toast.success("All counters reset to 0! Hit Refresh in Power BI.");
-                  } else {
-                    toast.error("Failed to reset metrics.");
-                  }
-                } catch {
-                  toast.error("Network error while resetting metrics.");
-                }
-              }
-            }}
-            title="Reset Power BI counters to 0"
-            className="flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all hover:bg-rose-500/20 active:scale-95"
-          >
-            <RotateCcw className="size-3.5" />
-            <span>Reset to 0</span>
-          </button>
-
           {/* Authenticated User Profile */}
           <div className="flex items-center gap-2 rounded-full border border-glass-border bg-glass/80 px-3 py-1.5 shadow-sm backdrop-blur-sm">
           {currentUser.picture ? (
