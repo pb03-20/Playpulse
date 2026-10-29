@@ -57,6 +57,7 @@ export default {
           getMonitoringDashboardDataset,
           getTableCsv,
           recordSessionHeartbeat,
+          resetTelemetryStore,
         } = await import("./lib/telemetry.store");
 
         const corsHeaders = {
@@ -97,6 +98,17 @@ export default {
         const format = url.searchParams.get("format") || "json";
 
         // Dedicated Monitoring Endpoints
+        if (url.pathname === "/api/powerbi/reset") {
+          resetTelemetryStore();
+          return new Response(JSON.stringify({ ok: true, message: "All telemetry counters reset to 0" }, null, 2), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+              ...corsHeaders,
+            },
+          });
+        }
+
         if (url.pathname === "/api/powerbi/monitoring") {
           const dataset = getMonitoringDashboardDataset();
           return new Response(JSON.stringify(dataset, null, 2), {

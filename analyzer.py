@@ -1,5 +1,7 @@
 import os
+import json
 import argparse
+from datetime import datetime
 from dotenv import load_dotenv
 from google_play_scraper import reviews, Sort
 from google import genai
@@ -9,6 +11,74 @@ load_dotenv()
 
 # We need the Gemini API key.
 API_KEY = os.getenv("GEMINI_API_KEY")
+
+DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "telemetry_store.json")
+
+def save_reviews_to_telemetry(app_id: str, review_list: list):
+    """Persists scraped Google Play reviews to telemetry_store.json for Power BI."""
+    if not review_list:
+        return
+    store = {"users": [], "sessions": [], "telemetry": [], "reviews": []}
+    if os.path.exists(DATA_PATH):
+        try:
+            with open(DATA_PATH, "r", encoding="utf-8") as f:
+                store = json.load(f)
+        except Exception:
+            pass
+
+    existing_ids = {r.get("reviewId") for r in store.get("reviews", []) if r.get("reviewId")}
+    now_iso = datetime.utcnow().isoformat() + "Z"
+
+    added_count = 0
+    for r in review_list:
+        rid = str(r.get("reviewId", r.get("id", "")))
+        if rid and rid in existing_ids:
+            continue
+        score = int(r.get("score", 0))
+        content = str(r.get("content", ""))
+        at_val = r.get("at")
+        at_str = at_val.isoformat() if hasattr(at_val, "isoformat") else str(at_val or now_iso)
+        sentiment = "Positive" if score >= 4 else "Negative" if score <= 2 else "Neutral"
+
+        store.setdefault("reviews", []).append({
+            "reviewId": rid or f"rev_{len(store.get('reviews', [])) + 1}",
+            "appId": app_id,
+            "userName": r.get("userName", "Google User"),
+            "score": score,
+            "content": content,
+            "at": at_str,
+            "thumbsUp": int(r.get("thumbsUpCount", r.get("thumbsUp", 0))),
+            "version": str(r.get("reviewCreatedVersion", r.get("version", "Unknown"))),
+            "sentiment": sentiment,
+            "detectedCategory": "General Experience",
+            "createdAt": now_iso
+        })
+        added_count += 1
+
+    # Record a scraping telemetry event
+    store.setdefault("telemetry", []).append({
+        "id": f"evt_scrape_{int(datetime.utcnow().timestamp()*1000)}",
+        "userEmail": "researcher@playpulse.io",
+        "sessionId": f"ses_{int(datetime.utcnow().timestamp()*1000)}",
+        "eventType": "scrape",
+        "appId": app_id,
+        "question": "",
+        "questionCategory": "",
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "totalTokens": 0,
+        "estimatedCostUsd": 0.0,
+        "statusCode": 200,
+        "errorMessage": "",
+        "latencyMs": 750,
+        "createdAt": now_iso
+    })
+
+    os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(store, f, indent=2)
+    print(f"[Telemetry] Saved {added_count} reviews for {app_id} into {DATA_PATH}")
+
 
 SYSTEM_PROMPT = """You're a user-research analyst who's spent a lot of time reading this app's reviews — you know the data inside out and you talk like a real person, not a report generator.
 
@@ -55,6 +125,7 @@ def fetch_reviews(app_id: str, count: int = 300, lang: str = "en", country: str 
         sort=Sort.NEWEST,
         count=count
     )
+    save_reviews_to_telemetry(app_id, result)
     return result
 
 

@@ -494,6 +494,8 @@ export interface SystemActivityRecord {
   status: "Completed" | "Failed" | "Running";
   duration: number; // in milliseconds
   durationSeconds: number;
+  reviewsCollected: number;
+  tokens: number;
   errorMessage: string;
   userEmail: string;
   accountType: string;
@@ -533,15 +535,20 @@ export function getMonitoringDashboardDataset() {
     else if (t.eventType === "session_heartbeat") jobType = "User Session";
     else if (t.eventType === "api_error") jobType = t.question ? "RAG Analysis" : "API Error";
 
+    const appId = t.appId || "Unknown App";
+    const appReviewsCount = store.reviews.filter((r) => r.appId === appId).length;
+
     systemActivity.push({
       id: t.id,
       timestamp: t.createdAt,
       date: t.createdAt ? t.createdAt.split("T")[0]! : "",
-      appName: t.appId || "Unknown App",
+      appName: appId,
       jobType,
       status: isError ? "Failed" : "Completed",
       duration: t.latencyMs || 0,
       durationSeconds: Number(((t.latencyMs || 0) / 1000).toFixed(2)),
+      reviewsCollected: jobType === "Review Scraping" ? appReviewsCount : 0,
+      tokens: t.totalTokens || 0,
       errorMessage: isError ? (t.errorMessage || `HTTP ${t.statusCode}`) : "",
       userEmail: t.userEmail || "anonymous",
       accountType: "Test Account",
@@ -551,15 +558,20 @@ export function getMonitoringDashboardDataset() {
   for (const s of store.sessions) {
     const exists = systemActivity.some((a) => a.id === s.id);
     if (!exists) {
+      const appId = s.appResearched || "Unknown App";
+      const appReviewsCount = store.reviews.filter((r) => r.appId === appId).length;
+
       systemActivity.push({
         id: s.id,
         timestamp: s.startedAt,
         date: s.startedAt ? s.startedAt.split("T")[0]! : "",
-        appName: s.appResearched || "Unknown App",
+        appName: appId,
         jobType: "User Session",
         status: "Completed",
         duration: (s.durationSeconds || 0) * 1000,
         durationSeconds: s.durationSeconds || 0,
+        reviewsCollected: appReviewsCount,
+        tokens: s.tokensConsumed || 0,
         errorMessage: "",
         userEmail: s.userEmail || "anonymous",
         accountType: "Test Account",
@@ -568,6 +580,27 @@ export function getMonitoringDashboardDataset() {
   }
 
   systemActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const nowIso = new Date().toISOString();
+  const todayStr = nowIso.split("T")[0]!;
+
+  const safeActivity: SystemActivityRecord[] = systemActivity.length > 0 ? systemActivity : [
+    {
+      id: "none",
+      timestamp: nowIso,
+      date: todayStr,
+      appName: "No Activity Yet",
+      jobType: "User Session",
+      status: "Completed",
+      duration: 0,
+      durationSeconds: 0,
+      reviewsCollected: 0,
+      tokens: 0,
+      errorMessage: "",
+      userEmail: "none",
+      accountType: "Test Account",
+    },
+  ];
 
   const reviewAppMap = new Map<string, { count: number; sumScore: number }>();
   for (const r of store.reviews) {
@@ -613,21 +646,112 @@ export function getMonitoringDashboardDataset() {
   };
 
   const kpisTable = [
-    { Metric: "Total Test Accounts", Value: kpis.totalTestAccounts, Description: "Number of accounts created" },
-    { Metric: "Total Apps Analyzed", Value: kpis.totalAppsAnalyzed, Description: "Unique Google Play apps analyzed" },
-    { Metric: "Total Reviews Collected", Value: kpis.totalReviewsCollected, Description: "Unique reviews stored" },
-    { Metric: "Completed Analyses", Value: kpis.completedAnalyses, Description: "Successfully completed analysis jobs" },
-    { Metric: "RAG Questions", Value: kpis.ragQuestions, Description: "Total questions submitted" },
-    { Metric: "Analysis Success Rate", Value: kpis.analysisSuccessRate, Description: "Percentage of analysis jobs completed successfully" },
+    {
+      "Total Test Accounts": kpis.totalTestAccounts,
+      "Total Apps Analyzed": kpis.totalAppsAnalyzed,
+      "Total Reviews Collected": kpis.totalReviewsCollected,
+      "Completed Analyses": kpis.completedAnalyses,
+      "RAG Questions": kpis.ragQuestions,
+      "Analysis Success Rate": kpis.analysisSuccessRate,
+      Metric: "Total Test Accounts",
+      Value: kpis.totalTestAccounts,
+      Description: "Number of accounts created",
+    },
+    {
+      "Total Test Accounts": kpis.totalTestAccounts,
+      "Total Apps Analyzed": kpis.totalAppsAnalyzed,
+      "Total Reviews Collected": kpis.totalReviewsCollected,
+      "Completed Analyses": kpis.completedAnalyses,
+      "RAG Questions": kpis.ragQuestions,
+      "Analysis Success Rate": kpis.analysisSuccessRate,
+      Metric: "Total Apps Analyzed",
+      Value: kpis.totalAppsAnalyzed,
+      Description: "Unique Google Play apps analyzed",
+    },
+    {
+      "Total Test Accounts": kpis.totalTestAccounts,
+      "Total Apps Analyzed": kpis.totalAppsAnalyzed,
+      "Total Reviews Collected": kpis.totalReviewsCollected,
+      "Completed Analyses": kpis.completedAnalyses,
+      "RAG Questions": kpis.ragQuestions,
+      "Analysis Success Rate": kpis.analysisSuccessRate,
+      Metric: "Total Reviews Collected",
+      Value: kpis.totalReviewsCollected,
+      Description: "Unique reviews stored",
+    },
+    {
+      "Total Test Accounts": kpis.totalTestAccounts,
+      "Total Apps Analyzed": kpis.totalAppsAnalyzed,
+      "Total Reviews Collected": kpis.totalReviewsCollected,
+      "Completed Analyses": kpis.completedAnalyses,
+      "RAG Questions": kpis.ragQuestions,
+      "Analysis Success Rate": kpis.analysisSuccessRate,
+      Metric: "Completed Analyses",
+      Value: kpis.completedAnalyses,
+      Description: "Successfully completed analysis jobs",
+    },
+    {
+      "Total Test Accounts": kpis.totalTestAccounts,
+      "Total Apps Analyzed": kpis.totalAppsAnalyzed,
+      "Total Reviews Collected": kpis.totalReviewsCollected,
+      "Completed Analyses": kpis.completedAnalyses,
+      "RAG Questions": kpis.ragQuestions,
+      "Analysis Success Rate": kpis.analysisSuccessRate,
+      Metric: "RAG Questions",
+      Value: kpis.ragQuestions,
+      Description: "Total questions submitted",
+    },
+    {
+      "Total Test Accounts": kpis.totalTestAccounts,
+      "Total Apps Analyzed": kpis.totalAppsAnalyzed,
+      "Total Reviews Collected": kpis.totalReviewsCollected,
+      "Completed Analyses": kpis.completedAnalyses,
+      "RAG Questions": kpis.ragQuestions,
+      "Analysis Success Rate": kpis.analysisSuccessRate,
+      Metric: "Analysis Success Rate",
+      Value: kpis.analysisSuccessRate,
+      Description: "Percentage of analysis jobs completed successfully",
+    },
+  ];
+
+  const safeReviewsByApp: ReviewByAppRecord[] = reviewsByApp.length > 0 ? reviewsByApp : [
+    {
+      appName: "No Reviews Yet",
+      reviewsCollected: 0,
+      avgRating: 0.0,
+    },
+  ];
+
+  const safeRagPerformance: RagPerformanceRecord[] = ragPerformance.length > 0 ? ragPerformance : [
+    {
+      timestamp: nowIso,
+      date: todayStr,
+      appName: "No Queries Yet",
+      responseTimeMs: 0,
+      tokens: 0,
+      status: "Completed",
+      userEmail: "none",
+    },
   ];
 
   return {
     kpis,
     kpisTable,
-    systemActivity,
-    reviewsByApp,
-    ragPerformance,
+    systemActivity: safeActivity,
+    reviewsByApp: safeReviewsByApp,
+    ragPerformance: safeRagPerformance,
   };
+}
+
+export function resetTelemetryStore(): TelemetryStore {
+  const empty: TelemetryStore = {
+    users: [],
+    sessions: [],
+    telemetry: [],
+    reviews: [],
+  };
+  saveStore(empty);
+  return empty;
 }
 
 function generateSeedData(): TelemetryStore {
