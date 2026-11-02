@@ -14,6 +14,17 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "telemetry_store.json")
 
+def get_mongo_db():
+    uri = os.getenv("MONGO_URI")
+    if not uri:
+        return None
+    try:
+        from pymongo import MongoClient
+        client = MongoClient(uri, serverSelectionTimeoutMS=3000)
+        return client.get_database("playpulse")
+    except Exception:
+        return None
+
 def save_reviews_to_telemetry(app_id: str, review_list: list, user_email: str = "baghelapriyanshu67@gmail.com"):
     """Persists scraped Google Play reviews to telemetry_store.json for Power BI."""
     if not review_list:
@@ -77,6 +88,18 @@ def save_reviews_to_telemetry(app_id: str, review_list: list, user_email: str = 
     os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
     with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(store, f, indent=2)
+
+    db = get_mongo_db()
+    if db is not None:
+        try:
+            if store.get("reviews"):
+                for rev in store["reviews"][-added_count:]:
+                    db["reviews"].update_one({"reviewId": rev["reviewId"]}, {"$set": rev}, upsert=True)
+            db["telemetry"].insert_one(store["telemetry"][-1])
+            print(f"[MongoDB] Synced {added_count} reviews + telemetry to MongoDB Atlas")
+        except Exception as e:
+            print(f"[MongoDB sync warning]: {e}")
+
     print(f"[Telemetry] Saved {added_count} reviews for {app_id} into {DATA_PATH}")
 
 
@@ -221,6 +244,20 @@ def save_question_to_telemetry(app_id: str, question: str, user_email: str = "ba
     os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
     with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(store, f, indent=2)
+
+    db = get_mongo_db()
+    if db is not None:
+        try:
+            db["telemetry"].insert_one(store["telemetry"][-1])
+            db["sessions"].update_one(
+                {"userEmail": user_email, "appResearched": app_id},
+                {"$inc": {"questionsCount": 1}},
+                upsert=False
+            )
+            print(f"[MongoDB] Synced question for {app_id} to MongoDB Atlas")
+        except Exception as e:
+            print(f"[MongoDB sync warning]: {e}")
+
     print(f"[Telemetry] Saved question for {app_id} by {user_email} into {DATA_PATH}")
 
 

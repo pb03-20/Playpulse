@@ -19,6 +19,22 @@ def reset_all_to_zero():
         "reviews": []
     }
     
+    from dotenv import load_dotenv
+    load_dotenv()
+    uri = os.getenv("MONGO_URI")
+    if uri:
+        try:
+            from pymongo import MongoClient
+            client = MongoClient(uri, serverSelectionTimeoutMS=4000)
+            db = client["playpulse"]
+            db["users"].delete_many({})
+            db["sessions"].delete_many({})
+            db["telemetry"].delete_many({})
+            db["reviews"].delete_many({})
+            print("  [MongoDB Atlas] Cleared 'playpulse' collections to 0!")
+        except Exception as e:
+            print(f"  [MongoDB Atlas] Reset warning: {e}")
+
     os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
     with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(empty_data, f, indent=2)

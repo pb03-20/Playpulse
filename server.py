@@ -25,15 +25,49 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()
+
 PORT = 5000
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "telemetry_store.json")
 
 # -----------------------------------------------------------------------------
-# 1. DATA STORAGE LAYER
+# 1. DATA STORAGE LAYER (MongoDB Atlas + File Fallback)
 # -----------------------------------------------------------------------------
 
+_mongo_db = None
+
+def get_mongo_db():
+    global _mongo_db
+    if _mongo_db is not None:
+        return _mongo_db
+    uri = os.getenv("MONGO_URI")
+    if not uri:
+        return None
+    try:
+        from pymongo import MongoClient
+        client = MongoClient(uri, serverSelectionTimeoutMS=4000)
+        _mongo_db = client.get_database("playpulse")
+        return _mongo_db
+    except Exception as e:
+        print(f"[MongoDB Warning] Could not connect: {e}")
+        return None
+
 def load_data():
-    """Reads telemetry_store.json. Returns empty dataset if missing."""
+    """Reads from MongoDB Atlas first, falls back to telemetry_store.json if DB unavailable."""
+    db = get_mongo_db()
+    if db is not None:
+        try:
+            users = list(db["users"].find({}, {"_id": 0}))
+            sessions = list(db["sessions"].find({}, {"_id": 0}))
+            telemetry = list(db["telemetry"].find({}, {"_id": 0}).sort("createdAt", -1))
+            reviews = list(db["reviews"].find({}, {"_id": 0}))
+            # If database has any records, use MongoDB as single source of truth
+            if users or sessions or telemetry or reviews:
+                return {"users": users, "sessions": sessions, "telemetry": telemetry, "reviews": reviews}
+        except Exception as e:
+            print(f"[MongoDB load error]: {e}")
+
     if not os.path.exists(DATA_PATH):
         return {"users": [], "sessions": [], "telemetry": [], "reviews": []}
     try:
@@ -43,7 +77,20 @@ def load_data():
         return {"users": [], "sessions": [], "telemetry": [], "reviews": []}
 
 def save_data(data):
-    """Persists data to telemetry_store.json."""
+    """Persists data to MongoDB Atlas and local backup."""
+    db = get_mongo_db()
+    if db is not None:
+        try:
+            # If reset called (all empty)
+            if not data.get("users") and not data.get("sessions") and not data.get("telemetry") and not data.get("reviews"):
+                db["users"].delete_many({})
+                db["sessions"].delete_many({})
+                db["telemetry"].delete_many({})
+                db["reviews"].delete_many({})
+                print("[MongoDB] Reset all collections in playpulse database to 0.")
+        except Exception as e:
+            print(f"[MongoDB save error]: {e}")
+
     os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
     with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
@@ -450,41 +497,77 @@ class PlayPulseHandler(BaseHTTPRequestHandler):
                 duration = payload.get("durationSeconds", 0)
                 app = payload.get("appResearched", "com.whatsapp")
 
-                # Upsert user
-                if user_email:
-                    now = datetime.utcnow().isoformat() + "Z"
-                    user = next((u for u in store["users"] if u.get("email") == user_email), None)
-                    if not user:
-                        store["users"].append({
-                            "id": f"usr_{int(datetime.utcnow().timestamp())}",
-                            "email": user_email,
-                            "createdAt": now,
-                            "lastActiveAt": now,
-                            "totalSessions": 1,
-                            "totalDurationSeconds": duration
-                        })
-                    else:
-                        user["lastActiveAt"] = now
+                # Upsert to MongoDB atomicly (zero race conditions)
+                db = get_mongo_db()
+                now = datetime.utcnow().isoformat() + "Z"
+                if db is not None:
+                    if user_email:
+                        db["users"].update_one(
+                            {"email": user_email},
+                            {
+                                "$set": {"lastActiveAt": now},
+                                "$setOnInsert": {
+                                    "id": f"usr_{int(datetime.utcnow().timestamp())}",
+                                    "email": user_email,
+                                    "createdAt": now,
+                                    "totalSessions": 1,
+                                    "totalDurationSeconds": duration
+                                }
+                            },
+                            upsert=True
+                        )
+                    if session_id and user_email:
+                        db["sessions"].update_one(
+                            {"id": session_id},
+                            {
+                                "$set": {
+                                    "lastPingAt": now,
+                                    "durationSeconds": duration,
+                                    "appResearched": app
+                                },
+                                "$setOnInsert": {
+                                    "id": session_id,
+                                    "userEmail": user_email,
+                                    "startedAt": now,
+                                    "questionsCount": 0
+                                }
+                            },
+                            upsert=True
+                        )
+                else:
+                    # File fallback
+                    if user_email:
+                        user = next((u for u in store["users"] if u.get("email") == user_email), None)
+                        if not user:
+                            store["users"].append({
+                                "id": f"usr_{int(datetime.utcnow().timestamp())}",
+                                "email": user_email,
+                                "createdAt": now,
+                                "lastActiveAt": now,
+                                "totalSessions": 1,
+                                "totalDurationSeconds": duration
+                            })
+                        else:
+                            user["lastActiveAt"] = now
 
-                # Upsert session
-                if session_id and user_email:
-                    now = datetime.utcnow().isoformat() + "Z"
-                    session = next((s for s in store["sessions"] if s.get("id") == session_id), None)
-                    if not session:
-                        store["sessions"].append({
-                            "id": session_id,
-                            "userEmail": user_email,
-                            "startedAt": now,
-                            "lastPingAt": now,
-                            "durationSeconds": duration,
-                            "appResearched": app,
-                            "questionsCount": 0
-                        })
-                    else:
-                        session["durationSeconds"] = max(session.get("durationSeconds", 0), duration)
-                        session["lastPingAt"] = now
+                    if session_id and user_email:
+                        session = next((s for s in store["sessions"] if s.get("id") == session_id), None)
+                        if not session:
+                            store["sessions"].append({
+                                "id": session_id,
+                                "userEmail": user_email,
+                                "startedAt": now,
+                                "lastPingAt": now,
+                                "durationSeconds": duration,
+                                "appResearched": app,
+                                "questionsCount": 0
+                            })
+                        else:
+                            session["durationSeconds"] = max(session.get("durationSeconds", 0), duration)
+                            session["lastPingAt"] = now
 
-                save_data(store)
+                    save_data(store)
+
                 self._set_cors_headers()
                 self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
                 return
