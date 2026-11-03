@@ -81,6 +81,30 @@ export default {
           return new Response(null, { headers: corsHeaders });
         }
 
+        // Live Proxy to Python Backend on Render
+        const RENDER_BACKEND = "https://playpulse-backend.onrender.com";
+        try {
+          const renderUrl = `${RENDER_BACKEND}${url.pathname}${url.search}`;
+          const proxyRes = await fetch(renderUrl, {
+            method: request.method,
+            headers: { "Content-Type": "application/json" },
+            body: request.method !== "GET" && request.method !== "HEAD" ? await request.text() : undefined,
+          });
+          if (proxyRes.ok) {
+            const data = await proxyRes.text();
+            return new Response(data, {
+              status: proxyRes.status,
+              headers: {
+                "Content-Type": proxyRes.headers.get("content-type") || "application/json",
+                ...corsHeaders,
+                "Cache-Control": "no-store",
+              },
+            });
+          }
+        } catch {
+          // If Render is cold/warming up, gracefully fall back to local handler below
+        }
+
         // Frontend Heartbeat Endpoint
         if (url.pathname === "/api/powerbi/heartbeat" && request.method === "POST") {
           try {

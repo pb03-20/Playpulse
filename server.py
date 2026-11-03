@@ -598,6 +598,62 @@ class PlayPulseHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
                 return
 
+        # Route: Telemetry event ingestion (from Vercel or CLI)
+        if path == "/api/powerbi/telemetry":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            try:
+                payload = json.loads(body)
+                db = get_mongo_db()
+                now = datetime.utcnow().isoformat() + "Z"
+
+                event = payload.get("event")
+                rev_list = payload.get("reviews", [])
+
+                if db is not None:
+                    if event:
+                        event["createdAt"] = event.get("createdAt") or now
+                        db["telemetry"].insert_one(event)
+                        if event.get("userEmail"):
+                            db["users"].update_one(
+                                {"email": event["userEmail"]},
+                                {
+                                    "$set": {"lastActiveAt": now},
+                                    "$setOnInsert": {
+                                        "id": f"usr_{int(datetime.utcnow().timestamp())}",
+                                        "email": event["userEmail"],
+                                        "createdAt": now,
+                                        "totalSessions": 1,
+                                        "totalDurationSeconds": 0
+                                    }
+                                },
+                                upsert=True
+                            )
+                        if event.get("sessionId") and event.get("question"):
+                            db["sessions"].update_one(
+                                {"id": event["sessionId"]},
+                                {"$inc": {"questionsCount": 1}},
+                                upsert=False
+                            )
+                    if rev_list:
+                        from pymongo import UpdateOne
+                        ops = []
+                        for r in rev_list:
+                            rid = str(r.get("reviewId") or r.get("id", ""))
+                            if rid:
+                                ops.append(UpdateOne({"reviewId": rid}, {"$set": r}, upsert=True))
+                        if ops:
+                            db["reviews"].bulk_write(ops, ordered=False)
+
+                self._set_cors_headers()
+                self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
+                return
+            except Exception as e:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+                return
+
         # Route: Reset all counters back to 0
         if path == "/api/powerbi/reset":
             empty_store = {"users": [], "sessions": [], "telemetry": [], "reviews": []}

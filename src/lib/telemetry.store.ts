@@ -104,6 +104,20 @@ function filterRealOnly(store: TelemetryStore): TelemetryStore {
   };
 }
 
+const RENDER_BACKEND = "https://playpulse-backend.onrender.com";
+
+function pushToRender(payload: { event?: unknown; reviews?: unknown[] }) {
+  try {
+    fetch(`${RENDER_BACKEND}/api/powerbi/telemetry`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
 import defaultStoreData from "../../data/telemetry_store.json";
 
 function loadStore(): TelemetryStore {
@@ -242,6 +256,15 @@ export function recordSessionHeartbeat(
   }
 
   saveStore(store);
+
+  try {
+    fetch(`${RENDER_BACKEND}/api/powerbi/heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, userEmail, durationSeconds, appResearched }),
+    }).catch(() => {});
+  } catch {}
+
   return session;
 }
 
@@ -272,6 +295,7 @@ export function logTelemetryEvent(event: Omit<TelemetryEvent, "id" | "createdAt"
   }
 
   saveStore(store);
+  pushToRender({ event: fullEvent });
   return fullEvent;
 }
 
@@ -317,6 +341,22 @@ export function recordScrapedReviews(
   }
 
   saveStore(store);
+
+  pushToRender({
+    reviews: reviews.map((r) => ({
+      reviewId: r.id,
+      appId,
+      userName: r.userName || "User",
+      score: r.score,
+      content: r.content,
+      at: r.at || now,
+      thumbsUp: r.thumbsUp || 0,
+      version: r.version || "Unknown",
+      sentiment: r.score >= 4 ? "Positive" : r.score <= 2 ? "Negative" : "Neutral",
+      detectedCategory: categorizeReview(r.content),
+      createdAt: now,
+    })),
+  });
 }
 
 export function getFullDataset() {
