@@ -14,13 +14,18 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "telemetry_store.json")
 
+
 def get_mongo_db():
     uri = os.getenv("MONGO_URI")
     if not uri:
         return None
     try:
         from pymongo import MongoClient
-        client = MongoClient(uri, serverSelectionTimeoutMS=3000)
+        try:
+            import certifi
+            client = MongoClient(uri, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=4000)
+        except ImportError:
+            client = MongoClient(uri, serverSelectionTimeoutMS=4000)
         return client.get_database("playpulse")
     except Exception:
         return None

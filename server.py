@@ -28,7 +28,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
 
-PORT = 5000
+PORT = int(os.getenv("PORT", 5000))
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "telemetry_store.json")
 
 # -----------------------------------------------------------------------------
@@ -46,7 +46,11 @@ def get_mongo_db():
         return None
     try:
         from pymongo import MongoClient
-        client = MongoClient(uri, serverSelectionTimeoutMS=4000)
+        try:
+            import certifi
+            client = MongoClient(uri, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=4000)
+        except ImportError:
+            client = MongoClient(uri, serverSelectionTimeoutMS=4000)
         _mongo_db = client.get_database("playpulse")
         return _mongo_db
     except Exception as e:
@@ -473,6 +477,23 @@ class PlayPulseHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(html_content.encode("utf-8"))
                 return
+
+        # Route 9: Root Health Check
+        if path == "":
+            self._set_cors_headers()
+            self.wfile.write(json.dumps({
+                "status": "online",
+                "service": "PlayPulse Python Power BI Backend",
+                "endpoints": [
+                    "/api/powerbi/monitoring",
+                    "/api/powerbi/kpis",
+                    "/api/powerbi/activity",
+                    "/api/powerbi/reviews-by-app",
+                    "/api/powerbi/rag-performance",
+                    "/api/powerbi/feed"
+                ]
+            }, indent=2).encode("utf-8"))
+            return
 
         # Default 404
         self.send_response(404)

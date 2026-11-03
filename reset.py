@@ -25,7 +25,11 @@ def reset_all_to_zero():
     if uri:
         try:
             from pymongo import MongoClient
-            client = MongoClient(uri, serverSelectionTimeoutMS=4000)
+            try:
+                import certifi
+                client = MongoClient(uri, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=4000)
+            except ImportError:
+                client = MongoClient(uri, serverSelectionTimeoutMS=4000)
             db = client["playpulse"]
             db["users"].delete_many({})
             db["sessions"].delete_many({})
