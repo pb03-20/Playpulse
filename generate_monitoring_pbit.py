@@ -43,7 +43,7 @@ DATA_MODEL_SCHEMA = {
                 "connectionDetails": {
                     "protocol": "http",
                     "address": {
-                        "url": "https://new2-liard.vercel.app/api/powerbi/monitoring"
+                        "url": "https://playpulse-backend.onrender.com/api/powerbi/monitoring"
                     }
                 },
                 "credential": {

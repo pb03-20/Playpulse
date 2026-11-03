@@ -49,7 +49,7 @@ DATA_MODEL_SCHEMA = {
                 "connectionDetails": {
                     "protocol": "http",
                     "address": {
-                        "url": "https://new2-liard.vercel.app/api/powerbi/feed"
+                        "url": "https://playpulse-backend.onrender.com/api/powerbi/feed"
                     }
                 },
                 "credential": {
@@ -82,7 +82,7 @@ DATA_MODEL_SCHEMA = {
                             "type": "m",
                             "expression": [
                                 "let",
-                                "    Source = Json.Document(Web.Contents(\"https://new2-liard.vercel.app/api/powerbi/feed\")),",
+                                "    Source = Json.Document(Web.Contents(\"https://playpulse-backend.onrender.com/api/powerbi/feed\")),",
                                 "    raw_users = Source[users],",
                                 "    table_users = Table.FromList(raw_users, Splitter.SplitByNothing(), null, null, ExtraValues.Error),",
                                 "    expanded_users = Table.ExpandRecordColumn(table_users, \"Column1\", {\"id\", \"email\", \"createdAt\", \"lastActiveAt\", \"totalSessions\", \"totalDurationSeconds\"}, {\"UserID\", \"Email\", \"FirstSeen\", \"LastActive\", \"TotalSessions\", \"TotalDurationSeconds\"}),",
@@ -137,7 +137,7 @@ DATA_MODEL_SCHEMA = {
                             "type": "m",
                             "expression": [
                                 "let",
-                                "    Source = Json.Document(Web.Contents(\"https://new2-liard.vercel.app/api/powerbi/feed\")),",
+                                "    Source = Json.Document(Web.Contents(\"https://playpulse-backend.onrender.com/api/powerbi/feed\")),",
                                 "    raw_sessions = Source[sessions],",
                                 "    table_sessions = Table.FromList(raw_sessions, Splitter.SplitByNothing(), null, null, ExtraValues.Error),",
                                 "    expanded_sessions = Table.ExpandRecordColumn(table_sessions, \"Column1\", {\"id\", \"userEmail\", \"startedAt\", \"lastPingAt\", \"durationSeconds\", \"appResearched\", \"questionsCount\"}, {\"SessionID\", \"UserEmail\", \"StartedAt\", \"LastPingAt\", \"DurationSeconds\", \"AppResearched\", \"QuestionsCount\"}),",
@@ -193,7 +193,7 @@ DATA_MODEL_SCHEMA = {
                             "type": "m",
                             "expression": [
                                 "let",
-                                "    Source = Json.Document(Web.Contents(\"https://new2-liard.vercel.app/api/powerbi/feed\")),",
+                                "    Source = Json.Document(Web.Contents(\"https://playpulse-backend.onrender.com/api/powerbi/feed\")),",
                                 "    raw_events = Source[telemetry],",
                                 "    table_events = Table.FromList(raw_events, Splitter.SplitByNothing(), null, null, ExtraValues.Error),",
                                 "    expanded_events = Table.ExpandRecordColumn(table_events, \"Column1\", {\"id\", \"userEmail\", \"sessionId\", \"eventType\", \"appId\", \"question\", \"questionCategory\", \"promptTokens\", \"completionTokens\", \"totalTokens\", \"estimatedCostUsd\", \"statusCode\", \"latencyMs\", \"createdAt\"}, {\"EventID\", \"UserEmail\", \"SessionID\", \"EventType\", \"TargetApp\", \"UserQuestion\", \"QuestionCategory\", \"PromptTokens\", \"CompletionTokens\", \"TotalTokens\", \"CostUSD\", \"StatusCode\", \"LatencyMs\", \"EventTimestamp\"}),",
@@ -239,7 +239,7 @@ DATA_MODEL_SCHEMA = {
                             "type": "m",
                             "expression": [
                                 "let",
-                                "    Source = Json.Document(Web.Contents(\"https://new2-liard.vercel.app/api/powerbi/feed\")),",
+                                "    Source = Json.Document(Web.Contents(\"https://playpulse-backend.onrender.com/api/powerbi/feed\")),",
                                 "    raw_reviews = Source[reviews],",
                                 "    table_reviews = Table.FromList(raw_reviews, Splitter.SplitByNothing(), null, null, ExtraValues.Error),",
                                 "    expanded_reviews = Table.ExpandRecordColumn(table_reviews, \"Column1\", {\"reviewId\", \"appId\", \"userName\", \"score\", \"content\", \"at\", \"thumbsUp\", \"version\", \"sentiment\", \"detectedCategory\"}, {\"ReviewID\", \"AppID\", \"ReviewerName\", \"Rating\", \"ReviewContent\", \"ReviewDate\", \"HelpfulVotes\", \"AppVersion\", \"Sentiment\", \"IssueCategory\"}),",

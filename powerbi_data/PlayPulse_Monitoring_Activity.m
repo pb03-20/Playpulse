@@ -1,10 +1,10 @@
 // ==============================================================================
 // PlayPulse — Website Monitoring Dashboard Data Source (Zero Synthetic Baseline)
-// Connects to live Vercel Cloud endpoint: https://new2-liard.vercel.app/api/powerbi/monitoring
+// Connects to live Python Cloud Backend: https://playpulse-backend.onrender.com/api/powerbi/monitoring
 // ==============================================================================
 
 let
-    Source = Json.Document(Web.Contents("https://new2-liard.vercel.app/api/powerbi/monitoring")),
+    Source = Json.Document(Web.Contents("https://playpulse-backend.onrender.com/api/powerbi/monitoring")),
     
     // 1. System Activity Table
     systemActivity_raw = Source[systemActivity],
