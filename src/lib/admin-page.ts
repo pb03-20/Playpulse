@@ -283,9 +283,11 @@ export function renderAdminPage(): string {
   </div>
 
   <script>
+    const RENDER_BACKEND = 'https://playpulse-backend.onrender.com';
+
     async function fetchKPIs() {
       try {
-        const res = await fetch('/api/powerbi/kpis?_t=' + Date.now());
+        const res = await fetch(RENDER_BACKEND + '/api/powerbi/kpis?_t=' + Date.now());
         if (res.ok) {
           const data = await res.json();
           const map = {};
@@ -316,7 +318,10 @@ export function renderAdminPage(): string {
       }
 
       try {
-        const res = await fetch('/api/powerbi/reset', { method: 'POST' });
+        // Reset on Render Python backend (clears MongoDB Atlas)
+        const res = await fetch(RENDER_BACKEND + '/api/powerbi/reset', { method: 'GET' });
+        // Also reset Vercel local store
+        fetch('/api/powerbi/reset', { method: 'POST' }).catch(() => {});
         if (res.ok) {
           alertBox.className = 'alert success';
           alertBox.innerHTML = '<strong>Success!</strong> All telemetry counters reset to 0. Now go to <strong>Power BI Desktop</strong> and click <strong>Home ➔ Refresh</strong> to see all cards clear.';
